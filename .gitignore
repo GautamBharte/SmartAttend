@@ -7,6 +7,11 @@ env/
 venv/
 .env
 
+# .gitignore
+backend/.env
+backend/alembic.ini
+backend/migrations/
+
 # Flutter
 .flutter-plugins
 .flutter-plugins-dependencies

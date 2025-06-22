@@ -4,3 +4,7 @@ flask_cors
 psycopg2-binary
 python-dotenv
 PyJWT
+Werkzeug
+alembic
+pytest
+pytest-flask
