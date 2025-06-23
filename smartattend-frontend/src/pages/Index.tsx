@@ -10,35 +10,93 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Checking for existing authentication...');
     // Check for existing authentication
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
+    
+    console.log('Found token:', !!token);
+    console.log('Found user data:', !!userData);
+    
     if (token && userData) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(userData));
+      try {
+        const parsedUser = JSON.parse(userData);
+        console.log('Parsed user:', parsedUser);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        // Clear invalid data
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
   const handleLogin = async (credentials: { email: string; password: string }) => {
     try {
+      console.log('Login attempt with credentials:', credentials);
       const response = await DualModeService.login(credentials);
+      console.log('Login response received:', response);
+      
+      // Store authentication data
       localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
+      
+      console.log('Setting user state:', response.user);
       setUser(response.user);
       setIsAuthenticated(true);
+      
       return response;
     } catch (error) {
+      console.error('Login failed:', error);
       throw error;
     }
   };
 
   const handleLogout = () => {
+    console.log('Logging out user...');
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
   };
+
+  // Global error handler for API calls
+  const handleApiError = (error: any) => {
+    console.error('API Error:', error);
+    
+    // Check if it's a 401 (Unauthorized) or 404 error indicating expired token
+    if (error.status === 401 || error.status === 404 || error.message?.includes('401') || error.message?.includes('404')) {
+      console.log('API key expired or unauthorized, clearing cache and redirecting to login');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+  };
+
+  // Add global error handling
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        if (response.status === 401 || response.status === 404) {
+          handleApiError({ status: response.status });
+        }
+        return response;
+      } catch (error) {
+        handleApiError(error);
+        throw error;
+      }
+    };
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -47,6 +105,8 @@ const Index = () => {
       </div>
     );
   }
+
+  console.log('Rendering Index - isAuthenticated:', isAuthenticated, 'user:', user);
 
   if (!isAuthenticated) {
     return <LoginForm onLogin={handleLogin} />;

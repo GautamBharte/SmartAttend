@@ -1,5 +1,5 @@
 // Toggle between real API and dummy data
-export const USE_DUMMY_API = true;
+export const USE_DUMMY_API = false;
 
 export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000',

@@ -1,3 +1,4 @@
+
 import { USE_DUMMY_API, API_CONFIG } from '@/config/api';
 import { mockUsers, mockEmployees, mockAttendanceHistory, mockLeaveRequests, mockTourRequests } from '@/data/mockData';
 
@@ -10,10 +11,15 @@ export class DualModeService {
   private static token: string | null = null;
 
   static async login(credentials: { email: string; password: string }) {
+    console.log('DualModeService.login called with:', credentials);
+    console.log('USE_DUMMY_API:', USE_DUMMY_API);
+    
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
       
       const user = mockUsers[credentials.email as keyof typeof mockUsers];
+      console.log('Found user in mock data:', user);
+      
       if (!user || user.password !== credentials.password) {
         throw new Error('Invalid credentials');
       }
@@ -22,24 +28,34 @@ export class DualModeService {
       this.currentUser = userWithoutPassword;
       this.token = `dummy_token_${user.id}`;
       
-      return {
+      const response = {
         user: userWithoutPassword,
         token: this.token
       };
+      
+      console.log('Dummy mode login response:', response);
+      return response;
     } else {
       // Real API call
+      console.log('Making real API call to:', `${API_CONFIG.BASE_URL}/auth/login`);
+      
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
       });
       
+      console.log('Real API response status:', response.status);
+      
       if (!response.ok) {
         const error = await response.json();
+        console.error('Real API login error:', error);
         throw new Error(error.message || 'Login failed');
       }
       
-      return response.json();
+      const result = await response.json();
+      console.log('Real API login success:', result);
+      return result;
     }
   }
 
