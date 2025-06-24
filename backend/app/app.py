@@ -19,11 +19,12 @@ def create_app(test_config=None):
     from app.models import user, attendance, leave, tour
 
     # Register all route blueprints here
-    from app.routes import auth, attendance, leave_tour
+    from app.routes import auth, attendance, leave_tour, admin
 
     app.register_blueprint(auth.auth_bp, url_prefix='/auth')
     app.register_blueprint(attendance.attendance_bp, url_prefix='/attendance')
     app.register_blueprint(leave_tour.leave_tour_bp, url_prefix='/request')
+    app.register_blueprint(admin.admin_bp)
 
     @app.route('/ping')
     def ping():

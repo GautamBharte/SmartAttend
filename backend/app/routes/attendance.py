@@ -55,3 +55,38 @@ def check_out(user):
     record.check_out_time = datetime.utcnow()
     db.session.commit()
     return jsonify({'message': 'Check-out successful', 'check_out_time': record.check_out_time.isoformat()}), 200
+
+@attendance_bp.route('/history', methods=['GET'])
+@token_required
+def attendance_history(user):
+    records = Attendance.query.filter_by(user_id=user.id).order_by(Attendance.date.desc()).all()
+    history = []
+
+    for record in records:
+        history.append({
+            'date': record.date.isoformat(),
+            'check_in_time': record.check_in_time.isoformat() if record.check_in_time else None,
+            'check_out_time': record.check_out_time.isoformat() if record.check_out_time else None
+        })
+
+    return jsonify({'history': history}), 200
+
+@attendance_bp.route('/attendance/status', methods=['GET'])
+@token_required
+def attendance_status(user):
+    today = date.today()
+    record = Attendance.query.filter_by(user_id=user.id, date=today).first()
+
+    if not record:
+        return jsonify({'status': 'not_checked_in'}), 200
+    elif record.check_in_time and not record.check_out_time:
+        return jsonify({'status': 'checked_in_only', 'check_in_time': record.check_in_time.isoformat()}), 200
+    elif record.check_in_time and record.check_out_time:
+        return jsonify({
+            'status': 'checked_in_and_out',
+            'check_in_time': record.check_in_time.isoformat(),
+            'check_out_time': record.check_out_time.isoformat()
+        }), 200
+    else:
+        # Very rare edge case: check_out_time without check_in
+        return jsonify({'status': 'inconsistent_record'}), 500
