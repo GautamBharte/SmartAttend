@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Navbar } from '../../components/layout/Navbar';
+import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from './Sidebar';
 import { DashboardOverview } from './DashboardOverview';
 import { AttendancePanel } from './AttendancePanel';
@@ -11,9 +11,10 @@ import { AdminPanel } from './AdminPanel';
 interface DashboardProps {
   user: any;
   onLogout: () => void;
+  onProfileUpdate?: (updatedUser: any) => void;
 }
 
-export const Dashboard = ({ user, onLogout }: DashboardProps) => {
+export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -40,6 +41,7 @@ export const Dashboard = ({ user, onLogout }: DashboardProps) => {
         user={user} 
         onLogout={onLogout} 
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+        // onProfileUpdate={onProfileUpdate}
         showMenuButton={true}
       />
       

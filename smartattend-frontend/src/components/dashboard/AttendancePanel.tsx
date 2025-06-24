@@ -3,41 +3,52 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Calendar } from 'lucide-react';
-import { attendanceService } from '@/services/attendanceService';
+import { Clock, Calendar, CheckCircle, Timer } from 'lucide-react';
+import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
 
 export const AttendancePanel = () => {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
-  const [isCheckedIn, setIsCheckedIn] = useState(false);
+  const [attendanceStatus, setAttendanceStatus] = useState<string>('not_checked_in');
+  const [todayRecord, setTodayRecord] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     fetchAttendanceData();
+    fetchAttendanceStatus();
   }, []);
 
   const fetchAttendanceData = async () => {
     try {
-      const history = await attendanceService.getHistory();
+      const history = await DualModeService.getAttendanceHistory();
       setAttendanceHistory(history || []);
-      
-      // Check if user is currently checked in
-      const today = new Date().toDateString();
-      const todayAttendance = history?.find((record: any) => 
-        new Date(record.check_in_time).toDateString() === today
-      );
-      setIsCheckedIn(todayAttendance && !todayAttendance.check_out_time);
     } catch (error) {
       console.error('Failed to fetch attendance data:', error);
+    }
+  };
+
+  const fetchAttendanceStatus = async () => {
+    try {
+      const status = await DualModeService.getAttendanceStatus();
+      console.log('Attendance status received:', status);
+      setAttendanceStatus(status.status);
+      if (status.check_in_time) {
+        setTodayRecord({
+          check_in_time: status.check_in_time,
+          check_out_time: status.check_out_time || null
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch attendance status:', error);
     }
   };
 
   const handleCheckIn = async () => {
     setLoading(true);
     try {
-      await attendanceService.checkIn();
-      setIsCheckedIn(true);
+      await DualModeService.checkIn();
       toast({ title: 'Check-in successful!', description: 'Have a great day!' });
+      fetchAttendanceStatus();
       fetchAttendanceData();
     } catch (error: any) {
       toast({ 
@@ -52,9 +63,9 @@ export const AttendancePanel = () => {
   const handleCheckOut = async () => {
     setLoading(true);
     try {
-      await attendanceService.checkOut();
-      setIsCheckedIn(false);
+      await DualModeService.checkOut();
       toast({ title: 'Check-out successful!', description: 'See you tomorrow!' });
+      fetchAttendanceStatus();
       fetchAttendanceData();
     } catch (error: any) {
       toast({ 
@@ -83,6 +94,50 @@ export const AttendancePanel = () => {
     });
   };
 
+  const getStatusInfo = () => {
+    switch (attendanceStatus) {
+      case 'not_checked_in':
+        return {
+          title: 'Not Checked In',
+          description: 'Ready to start your day',
+          color: 'bg-gray-100 text-gray-600',
+          icon: Clock,
+          showCheckIn: true,
+          showCheckOut: false
+        };
+      case 'checked_in_only':
+        return {
+          title: 'Checked In',
+          description: `Since ${todayRecord?.check_in_time ? formatTime(todayRecord.check_in_time) : ''}`,
+          color: 'bg-green-100 text-green-600',
+          icon: Timer,
+          showCheckIn: false,
+          showCheckOut: true
+        };
+      case 'checked_in_and_out':
+        return {
+          title: 'Day Completed',
+          description: `${formatTime(todayRecord?.check_in_time)} - ${formatTime(todayRecord?.check_out_time)}`,
+          color: 'bg-blue-100 text-blue-600',
+          icon: CheckCircle,
+          showCheckIn: false,
+          showCheckOut: false
+        };
+      default:
+        return {
+          title: 'Status Unknown',
+          description: 'Please refresh the page',
+          color: 'bg-red-100 text-red-600',
+          icon: Clock,
+          showCheckIn: false,
+          showCheckOut: false
+        };
+    }
+  };
+
+  const statusInfo = getStatusInfo();
+  const StatusIcon = statusInfo.icon;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -97,7 +152,7 @@ export const AttendancePanel = () => {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Clock className="w-5 h-5" />
-              <span>Today's Attendance</span>
+              <span>Today's Status</span>
             </CardTitle>
             <CardDescription>
               {new Date().toLocaleDateString('en-US', { 
@@ -109,21 +164,15 @@ export const AttendancePanel = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-center">
-              <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${
-                isCheckedIn ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-600'
-              }`}>
-                <Clock className="w-8 h-8" />
+              <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-3 ${statusInfo.color}`}>
+                <StatusIcon className="w-8 h-8" />
               </div>
-              <p className="text-lg font-semibold">
-                {isCheckedIn ? 'Checked In' : 'Not Checked In'}
-              </p>
-              <p className="text-sm text-gray-500">
-                Current Status
-              </p>
+              <p className="text-lg font-semibold">{statusInfo.title}</p>
+              <p className="text-sm text-gray-500">{statusInfo.description}</p>
             </div>
             
             <div className="space-y-2">
-              {!isCheckedIn ? (
+              {statusInfo.showCheckIn && (
                 <Button 
                   onClick={handleCheckIn} 
                   disabled={loading} 
@@ -132,16 +181,27 @@ export const AttendancePanel = () => {
                   <Clock className="w-4 h-4 mr-2" />
                   Check In
                 </Button>
-              ) : (
+              )}
+              
+              {statusInfo.showCheckOut && (
                 <Button 
                   onClick={handleCheckOut} 
                   disabled={loading} 
                   variant="outline"
-                  className="w-full"
+                  className="w-full border-green-600 text-green-600 hover:bg-green-50"
                 >
-                  <Clock className="w-4 h-4 mr-2" />
+                  <CheckCircle className="w-4 h-4 mr-2" />
                   Check Out
                 </Button>
+              )}
+
+              {attendanceStatus === 'checked_in_and_out' && (
+                <div className="text-center py-4">
+                  <div className="inline-flex items-center px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+                    <span className="text-green-800 font-medium">Day Completed!</span>
+                  </div>
+                </div>
               )}
             </div>
           </CardContent>

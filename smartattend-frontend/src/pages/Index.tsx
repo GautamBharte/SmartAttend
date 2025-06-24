@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
@@ -11,7 +10,10 @@ const Index = () => {
 
   useEffect(() => {
     console.log('Checking for existing authentication...');
-    // Check for existing authentication
+    checkAuthState();
+  }, []);
+
+  const checkAuthState = async () => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     
@@ -22,8 +24,24 @@ const Index = () => {
       try {
         const parsedUser = JSON.parse(userData);
         console.log('Parsed user:', parsedUser);
-        setUser(parsedUser);
-        setIsAuthenticated(true);
+        
+        // Verify token is still valid by fetching fresh profile
+        try {
+          const freshProfile = await DualModeService.getProfile();
+          console.log('Fresh profile fetched:', freshProfile);
+          
+          // Update stored user data with fresh profile
+          localStorage.setItem('user', JSON.stringify(freshProfile));
+          setUser(freshProfile);
+          setIsAuthenticated(true);
+        } catch (profileError) {
+          console.error('Failed to fetch profile, token might be expired:', profileError);
+          // Clear invalid data
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       } catch (error) {
         console.error('Error parsing user data:', error);
         // Clear invalid data
@@ -32,7 +50,7 @@ const Index = () => {
       }
     }
     setLoading(false);
-  }, []);
+  };
 
   const handleLogin = async (credentials: { email: string; password: string }) => {
     try {
@@ -61,6 +79,12 @@ const Index = () => {
     localStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
+  };
+
+  const handleProfileUpdate = (updatedUser: any) => {
+    console.log('Updating user profile:', updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
   };
 
   // Global error handler for API calls
@@ -112,7 +136,7 @@ const Index = () => {
     return <LoginForm onLogin={handleLogin} />;
   }
 
-  return <Dashboard user={user} onLogout={handleLogout} />;
+  return <Dashboard user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />;
 };
 
 export default Index;

@@ -1,4 +1,3 @@
-
 import { USE_DUMMY_API, API_CONFIG } from '@/config/api';
 import { mockUsers, mockEmployees, mockAttendanceHistory, mockLeaveRequests, mockTourRequests } from '@/data/mockData';
 
@@ -59,6 +58,53 @@ export class DualModeService {
     }
   }
 
+  static async getProfile() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      
+      // Get current user from localStorage if available
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        return JSON.parse(storedUser);
+      }
+      
+      return this.currentUser;
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile`, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      return response.json();
+    }
+  }
+
+  static async updateProfile(profileData: { name: string; email: string }) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      
+      // Update stored user data
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const user = JSON.parse(storedUser);
+        const updatedUser = { ...user, ...profileData };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return { message: 'Profile updated successfully' };
+      }
+      
+      return { message: 'Profile updated successfully' };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(profileData),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update profile');
+      return response.json();
+    }
+  }
+
   static async register(userData: { name: string; email: string; password: string; role?: string }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
@@ -87,6 +133,94 @@ export class DualModeService {
         throw new Error(error.message || 'Registration failed');
       }
       
+      return response.json();
+    }
+  }
+
+  static async forgotPassword(email: string) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      
+      const user = Object.values(mockUsers).find(u => u.email === email);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      return { 
+        message: 'Reset token generated', 
+        reset_token: 'dummy_reset_token_123456' 
+      };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate reset token');
+      }
+      
+      return response.json();
+    }
+  }
+
+  static async resetPassword(data: { email: string; new_password: string }) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      
+      const user = Object.values(mockUsers).find(u => u.email === data.email);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      return { message: 'Password reset successfully' };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reset password');
+      }
+      
+      return response.json();
+    }
+  }
+
+  static async getAttendanceStatus() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      
+      // Mock attendance status based on time of day for more realistic behavior
+      const hour = new Date().getHours();
+      const hasCheckedIn = hour >= 9; // Assume work starts at 9 AM
+      const hasCheckedOut = hour >= 17 && hasCheckedIn; // Work ends at 5 PM
+      
+      if (!hasCheckedIn) {
+        return { status: 'not_checked_in' };
+      } else if (hasCheckedIn && !hasCheckedOut) {
+        return { 
+          status: 'checked_in_only',
+          check_in_time: new Date(Date.now() - (hour - 9) * 60 * 60 * 1000).toISOString()
+        };
+      } else {
+        return {
+          status: 'checked_in_and_out',
+          check_in_time: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+          check_out_time: new Date().toISOString()
+        };
+      }
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/status`, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      if (!response.ok) throw new Error('Failed to fetch attendance status');
       return response.json();
     }
   }
