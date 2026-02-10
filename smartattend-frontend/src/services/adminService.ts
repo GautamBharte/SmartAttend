@@ -144,6 +144,24 @@ class AdminService {
   getCsvTemplateUrl(): string {
     return `${API_BASE_URL}/admin/employees/csv-template`;
   }
+
+  async sendDailyReport(): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/send-daily-report`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to send daily report');
+    }
+    return data;
+  }
+
+  getPreviewReportUrl(): string {
+    const token = localStorage.getItem('token');
+    return `${API_BASE_URL}/admin/preview-daily-report?token=${token}`;
+  }
 }
 
 export interface BulkUploadResult {

@@ -1,3 +1,4 @@
+import os
 from flask import Flask
 from flask_cors import CORS
 from app.config import Config
@@ -46,6 +47,42 @@ def create_app(test_config=None):
     return app
 
 app = create_app()
+
+
+# ── Daily report scheduler ────────────────────────────────────────────
+# Only start the scheduler in the main process (not in Flask reloader's
+# child process) and not during testing.
+def _start_scheduler():
+    from app.daily_report import send_daily_report, REPORT_HOUR, REPORT_MINUTE
+    from app.office_config import OFFICE_TIMEZONE_NAME
+    from app.mail import is_mail_configured
+    from apscheduler.schedulers.background import BackgroundScheduler
+    from apscheduler.triggers.cron import CronTrigger
+
+    if not is_mail_configured():
+        print("[scheduler] SMTP not configured — daily report disabled.")
+        print("[scheduler] Set SMTP_HOST, SMTP_USER, SMTP_PASS, REPORT_RECIPIENTS in .env to enable.")
+        return
+
+    scheduler = BackgroundScheduler(daemon=True)
+    scheduler.add_job(
+        send_daily_report,
+        trigger=CronTrigger(
+            hour=REPORT_HOUR,
+            minute=REPORT_MINUTE,
+            timezone=OFFICE_TIMEZONE_NAME,
+        ),
+        id="daily_attendance_report",
+        replace_existing=True,
+    )
+    scheduler.start()
+    print(f"[scheduler] Daily report scheduled at {REPORT_HOUR:02d}:{REPORT_MINUTE:02d} {OFFICE_TIMEZONE_NAME}")
+
+
+# Avoid double-scheduling when Flask reloader is active
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or not app.debug:
+    _start_scheduler()
+
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8000, debug=True)

@@ -213,3 +213,49 @@ def bulk_upload_employees():
             'errors': len(errors),
         }
     }), 201 if created else 200
+
+
+# ── Manual daily report trigger ───────────────────────────────────────
+
+@admin_bp.route("/admin/send-daily-report", methods=["POST"])
+@admin_required
+def trigger_daily_report():
+    """Let an admin manually trigger the daily attendance report email."""
+    from app.daily_report import generate_report_html
+    from app.mail import send_html_email, is_mail_configured
+
+    if not is_mail_configured():
+        return jsonify({'error': 'SMTP not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, REPORT_RECIPIENTS in .env'}), 400
+
+    subject, html = generate_report_html()
+    send_html_email(subject, html)
+    return jsonify({'message': 'Daily report sent successfully'}), 200
+
+
+@admin_bp.route("/admin/preview-daily-report", methods=["GET"])
+def preview_daily_report():
+    """Return the daily report as HTML for preview (no email sent).
+    Accepts token via Authorization header OR ?token= query param (for browser tab).
+    """
+    from app.daily_report import generate_report_html
+
+    # Support both header and query-param auth (for opening in a new tab)
+    token = request.headers.get('Authorization')
+    if token:
+        token = token.split()[-1]
+    else:
+        token = request.args.get('token')
+
+    if not token:
+        return jsonify({'error': 'Missing token'}), 401
+
+    try:
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        user = User.query.get(data['user_id'])
+        if not user or user.role != 'admin':
+            raise Exception("Not authorized")
+    except Exception:
+        return jsonify({'error': 'Invalid or expired token'}), 401
+
+    _subject, html = generate_report_html()
+    return Response(html, mimetype='text/html')

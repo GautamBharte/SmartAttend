@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Calendar, FileText, CheckCircle, XCircle } from 'lucide-react';
+import { Users, Calendar, FileText, CheckCircle, XCircle, Mail, Eye, Send, Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
 import { adminService, type SearchFilters, type AdminLeave, type AdminTour, type Employee } from '../..//services/adminService';
 import { AdminSearchFilters } from './AdminSearchFilters';
 import { DetailModal } from './DetailModal';
@@ -11,6 +11,210 @@ import { AddEmployeeForm } from './AddEmployeeForm';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { OFFICE } from '@/config/api';
+
+/* ─── Daily Report Section ──────────────────────────────────────────── */
+
+/** Returns true when the current time in the office timezone falls within office hours. */
+function isWithinOfficeHours(): boolean {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+    timeZone: OFFICE.TIMEZONE,
+  });
+  const parts = formatter.formatToParts(now);
+  const h = Number(parts.find(p => p.type === 'hour')?.value ?? 0);
+  const m = Number(parts.find(p => p.type === 'minute')?.value ?? 0);
+  const currentMinutes = h * 60 + m;
+
+  const [startH, startM] = OFFICE.START.split(':').map(Number);
+  const [endH, endM] = OFFICE.END.split(':').map(Number);
+  return currentMinutes >= startH * 60 + startM && currentMinutes < endH * 60 + endM;
+}
+
+const DailyReportSection = () => {
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [outsideOfficeHours, setOutsideOfficeHours] = useState(!isWithinOfficeHours());
+
+  // Re-check every 60 s so the button enables/disables without a reload
+  useEffect(() => {
+    const id = setInterval(() => setOutsideOfficeHours(!isWithinOfficeHours()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const handleSend = async () => {
+    setSending(true);
+    setSendResult(null);
+    try {
+      const res = await adminService.sendDailyReport();
+      setSendResult({ ok: true, message: res.message });
+      toast({ title: 'Report Sent!', description: res.message });
+    } catch (err: any) {
+      setSendResult({ ok: false, message: err.message });
+      toast({ title: 'Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handlePreview = async () => {
+    setLoadingPreview(true);
+    setPreviewHtml(null);
+    try {
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`http://localhost:8000/admin/preview-daily-report`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!resp.ok) throw new Error('Failed to load preview');
+      const html = await resp.text();
+      setPreviewHtml(html);
+    } catch (err: any) {
+      toast({ title: 'Preview Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const openInNewTab = () => {
+    window.open(adminService.getPreviewReportUrl(), '_blank');
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="w-5 h-5" />
+            Daily Attendance Report
+          </CardTitle>
+          <CardDescription>
+            Preview or manually send today's attendance report email. The report is also sent
+            automatically every day at 10:00 PM (office timezone).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Actions */}
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={handlePreview}
+              disabled={loadingPreview}
+            >
+              {loadingPreview ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Eye className="w-4 h-4 mr-2" />
+              )}
+              Preview Report
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={openInNewTab}
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Open in New Tab
+            </Button>
+
+            <div className="relative group inline-block">
+              <Button
+                onClick={handleSend}
+                disabled={sending || !outsideOfficeHours}
+                className="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              >
+                {sending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4 mr-2" />
+                )}
+                Send Report Now
+              </Button>
+              {!outsideOfficeHours && (
+                <div className="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-10">
+                  <div className="relative px-3 py-1.5 text-xs text-white bg-gray-800 rounded-md shadow-sm whitespace-nowrap">
+                    Available after office hours ({OFFICE.END})
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-[-4px] w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-t-4 border-t-gray-800" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* During office hours banner */}
+          {!outsideOfficeHours && (
+            <div className="flex items-center gap-2 rounded-lg px-4 py-3 text-sm bg-amber-50 text-amber-800 border border-amber-200">
+              <Clock className="w-4 h-4 flex-shrink-0" />
+              <span>
+                Sending is available after office hours (after <strong>{OFFICE.END}</strong>).
+                You can still preview the report.
+              </span>
+            </div>
+          )}
+
+          {/* Send result banner */}
+          {sendResult && (
+            <div
+              className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm ${sendResult.ok
+                ? 'bg-green-50 text-green-800 border border-green-200'
+                : 'bg-red-50 text-red-800 border border-red-200'
+                }`}
+            >
+              {sendResult.ok ? (
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              )}
+              {sendResult.message}
+            </div>
+          )}
+
+          {/* Inline preview */}
+          {previewHtml && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-medium text-gray-700">Report Preview</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPreviewHtml(null)}
+                  className="text-xs text-gray-500"
+                >
+                  Close Preview
+                </Button>
+              </div>
+              <div className="border rounded-lg overflow-hidden bg-gray-50">
+                <iframe
+                  srcDoc={previewHtml}
+                  title="Daily Report Preview"
+                  className="w-full border-0"
+                  style={{ minHeight: '600px' }}
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Info box */}
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+            <p className="font-medium mb-1">ℹ️ About the Daily Report</p>
+            <ul className="list-disc list-inside space-y-1 text-blue-700">
+              <li>Sent automatically every day at <strong>10:00 PM</strong> (office timezone). Manual send is available after office hours.</li>
+              <li>Includes every employee's status: <strong>Present</strong> or <strong>Absent</strong>.</li>
+              <li>Shows entry &amp; exit times for present employees.</li>
+              <li>Recipients are configured via the <code className="bg-blue-100 px-1 rounded">REPORT_RECIPIENTS</code> env var.</li>
+              <li>Requires SMTP settings (<code className="bg-blue-100 px-1 rounded">SMTP_HOST</code>, <code className="bg-blue-100 px-1 rounded">SMTP_USER</code>, <code className="bg-blue-100 px-1 rounded">SMTP_PASS</code>) in <code className="bg-blue-100 px-1 rounded">.env</code>.</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 export const AdminPanel = () => {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -209,6 +413,10 @@ export const AdminPanel = () => {
           <TabsTrigger value="leaves">Leave Requests</TabsTrigger>
           <TabsTrigger value="tours">Tour Requests</TabsTrigger>
           <TabsTrigger value="add-employee">Add Employee</TabsTrigger>
+          <TabsTrigger value="daily-report">
+            <Mail className="w-4 h-4 mr-1.5" />
+            Daily Report
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="employees" className="space-y-4">
@@ -216,7 +424,7 @@ export const AdminPanel = () => {
             filters={employeeFilters}
             onFiltersChange={setEmployeeFilters}
           />
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Employee Management</CardTitle>
@@ -268,7 +476,7 @@ export const AdminPanel = () => {
             showUserFilter={true}
             employees={employees}
           />
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Leave Requests</CardTitle>
@@ -350,7 +558,7 @@ export const AdminPanel = () => {
             showUserFilter={true}
             employees={employees}
           />
-          
+
           <Card>
             <CardHeader>
               <CardTitle>Tour Requests</CardTitle>
@@ -427,6 +635,10 @@ export const AdminPanel = () => {
 
         <TabsContent value="add-employee" className="space-y-4">
           <AddEmployeeForm onEmployeeAdded={fetchEmployees} />
+        </TabsContent>
+
+        <TabsContent value="daily-report" className="space-y-4">
+          <DailyReportSection />
         </TabsContent>
       </Tabs>
 
