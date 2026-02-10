@@ -22,8 +22,13 @@ REPORT_RECIPIENTS = [
 ]
 
 
+def is_smtp_configured() -> bool:
+    """Return True if core SMTP settings (host, user, pass) are present."""
+    return bool(SMTP_HOST and SMTP_USER and SMTP_PASS)
+
+
 def is_mail_configured() -> bool:
-    """Return True if all required SMTP settings are present."""
+    """Return True if all required SMTP settings including recipients are present."""
     return bool(SMTP_HOST and SMTP_USER and SMTP_PASS and REPORT_RECIPIENTS)
 
 
@@ -37,7 +42,7 @@ def send_html_email(subject: str, html_body: str, recipients: list[str] | None =
         print("[mail] No recipients configured – skipping send.")
         return
 
-    if not is_mail_configured():
+    if not is_smtp_configured():
         print("[mail] SMTP not configured – skipping send.")
         return
 

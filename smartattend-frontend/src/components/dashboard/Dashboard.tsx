@@ -72,7 +72,7 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
         user={user}
         onLogout={onLogout}
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-        // onProfileUpdate={onProfileUpdate}
+        onProfileUpdate={onProfileUpdate}
         showMenuButton={true}
       />
 
