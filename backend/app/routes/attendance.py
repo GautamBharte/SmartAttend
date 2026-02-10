@@ -71,7 +71,7 @@ def attendance_history(user):
 
     return jsonify({'history': history}), 200
 
-@attendance_bp.route('/attendance/status', methods=['GET'])
+@attendance_bp.route('/status', methods=['GET'])
 @token_required
 def attendance_status(user):
     today = date.today()
