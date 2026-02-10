@@ -1,0 +1,113 @@
+---
+# One-time Raspberry Pi setup — installs Docker, Node.js, Nginx.
+# Run:  make deploy-setup  (or cd deploy && ansible-playbook playbooks/setup.yml --ask-become-pass)
+
+- name: Initial Raspberry Pi setup for SmartAttend
+  hosts: smartattend
+  become: true
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    # ── Docker ──────────────────────────────────────────────────
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Install Docker via convenience script
+      when: docker_check.rc != 0
+      shell: curl -fsSL https://get.docker.com | sh
+      args:
+        creates: /usr/bin/docker
+
+    - name: Add user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    - name: Install Docker Compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Enable Docker on boot
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    # ── Node.js 20 ──────────────────────────────────────────────
+    - name: Check if Node.js is installed
+      command: node --version
+      register: node_check
+      ignore_errors: true
+      changed_when: false
+
+    - name: Add NodeSource 20.x repo
+      when: node_check.rc != 0
+      shell: curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+
+    - name: Install Node.js
+      apt:
+        name: nodejs
+        state: present
+
+    # ── Nginx ───────────────────────────────────────────────────
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Remove default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+
+    - name: Deploy SmartAttend Nginx config
+      template:
+        src: ../templates/smartattend.nginx.j2
+        dest: /etc/nginx/sites-available/smartattend
+      notify: Reload Nginx
+
+    - name: Enable SmartAttend Nginx site
+      file:
+        src: /etc/nginx/sites-available/smartattend
+        dest: /etc/nginx/sites-enabled/smartattend
+        state: link
+      notify: Reload Nginx
+
+    - name: Enable Nginx on boot
+      systemd:
+        name: nginx
+        enabled: true
+
+    # ── Directories ─────────────────────────────────────────────
+    - name: Create web root
+      file:
+        path: "{{ web_root }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    # ── Make utility ────────────────────────────────────────────
+    - name: Install make
+      apt:
+        name: make
+        state: present
+
+  handlers:
+    - name: Reload Nginx
+      systemd:
+        name: nginx
+        state: reloaded

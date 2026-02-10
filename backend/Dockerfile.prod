@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONPATH=/app
+ENV FLASK_ENV=production
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Production: gunicorn with 2 workers (tuned for RPi 4)
+# --preload loads the app once then forks, saving memory
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--timeout", "120", "--preload", "app.app:create_app()"]
