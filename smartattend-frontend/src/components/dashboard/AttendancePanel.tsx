@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, Calendar, CheckCircle, Timer } from 'lucide-react';
 import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
+import { formatOfficeTime, formatOfficeDate } from '@/config/api';
 
 export const AttendancePanel = () => {
   const [attendanceHistory, setAttendanceHistory] = useState<any[]>([]);
@@ -77,23 +78,6 @@ export const AttendancePanel = () => {
     setLoading(false);
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
   const getStatusInfo = () => {
     switch (attendanceStatus) {
       case 'not_checked_in':
@@ -108,7 +92,7 @@ export const AttendancePanel = () => {
       case 'checked_in_only':
         return {
           title: 'Checked In',
-          description: `Since ${todayRecord?.check_in_time ? formatTime(todayRecord.check_in_time) : ''}`,
+          description: `Since ${todayRecord?.check_in_time ? formatOfficeTime(todayRecord.check_in_time) : ''}`,
           color: 'bg-green-100 text-green-600',
           icon: Timer,
           showCheckIn: false,
@@ -117,7 +101,7 @@ export const AttendancePanel = () => {
       case 'checked_in_and_out':
         return {
           title: 'Day Completed',
-          description: `${formatTime(todayRecord?.check_in_time)} - ${formatTime(todayRecord?.check_out_time)}`,
+          description: `${todayRecord?.check_in_time ? formatOfficeTime(todayRecord.check_in_time) : ''} - ${todayRecord?.check_out_time ? formatOfficeTime(todayRecord.check_out_time) : ''}`,
           color: 'bg-blue-100 text-blue-600',
           icon: CheckCircle,
           showCheckIn: false,
@@ -221,11 +205,11 @@ export const AttendancePanel = () => {
                 attendanceHistory.map((record: any, index: number) => (
                   <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex-1">
-                      <p className="font-medium">{formatDate(record.check_in_time)}</p>
+                      <p className="font-medium">{record.date || (record.check_in_time ? formatOfficeDate(record.check_in_time) : '—')}</p>
                       <div className="flex space-x-4 text-sm text-gray-500 mt-1">
-                        <span>In: {formatTime(record.check_in_time)}</span>
+                        {record.check_in_time && <span>In: {formatOfficeTime(record.check_in_time)}</span>}
                         {record.check_out_time && (
-                          <span>Out: {formatTime(record.check_out_time)}</span>
+                          <span>Out: {formatOfficeTime(record.check_out_time)}</span>
                         )}
                       </div>
                     </div>

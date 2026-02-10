@@ -30,6 +30,19 @@ def create_app(test_config=None):
     def ping():
         return {'message': 'pong'}, 200
 
+    @app.route('/config')
+    def office_config():
+        from app.office_config import (
+            OFFICE_TIMEZONE_NAME,
+            OFFICE_START_HOUR, OFFICE_START_MINUTE,
+            OFFICE_END_HOUR, OFFICE_END_MINUTE,
+        )
+        return {
+            'timezone': OFFICE_TIMEZONE_NAME,
+            'office_start': f"{OFFICE_START_HOUR:02d}:{OFFICE_START_MINUTE:02d}",
+            'office_end': f"{OFFICE_END_HOUR:02d}:{OFFICE_END_MINUTE:02d}",
+        }, 200
+
     return app
 
 app = create_app()

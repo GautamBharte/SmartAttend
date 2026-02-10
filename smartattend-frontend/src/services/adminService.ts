@@ -122,6 +122,41 @@ class AdminService {
       throw new Error(error.message || 'Failed to update tour status');
     }
   }
+
+  async bulkUploadEmployees(file: File): Promise<BulkUploadResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/admin/employees/bulk-upload`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }, // no Content-Type — FormData sets it
+      body: formData,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Bulk upload failed');
+    }
+    return data;
+  }
+
+  getCsvTemplateUrl(): string {
+    return `${API_BASE_URL}/admin/employees/csv-template`;
+  }
+}
+
+export interface BulkUploadResult {
+  message: string;
+  created: { row: number; email: string; name: string }[];
+  skipped: { row: number; email: string; reason: string }[];
+  errors: { row: number; email: string; reason: string }[];
+  summary: {
+    total_rows: number;
+    created: number;
+    skipped: number;
+    errors: number;
+  };
 }
 
 export const adminService = new AdminService();

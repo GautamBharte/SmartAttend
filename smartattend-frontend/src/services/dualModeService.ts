@@ -283,6 +283,20 @@ export class DualModeService {
     }
   }
 
+  static async getWeeklyHours() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { weekly_hours: 0, week_start: '', week_end: '' };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/weekly-hours`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch weekly hours');
+      return response.json();
+    }
+  }
+
   static async applyLeave(leaveData: { start_date: string; end_date: string; reason: string }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);

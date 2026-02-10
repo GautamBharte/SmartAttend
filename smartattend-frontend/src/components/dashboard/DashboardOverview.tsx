@@ -1,11 +1,16 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ContributionCalendar } from '../../components/calendar/ContributionCalendar';
 import { Clock, Calendar, Users, FileText, CheckCircle, Timer } from 'lucide-react';
 import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
+import { formatOfficeTime, OFFICE } from '@/config/api';
+
+/** Returns today's date string (YYYY-MM-DD) in the office timezone. */
+const officeToday = () =>
+  new Date().toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
 
 interface DashboardOverviewProps {
   user: any;
@@ -24,8 +29,41 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
+  // Track the date the dashboard was last fetched for
+  const lastFetchDate = useRef(officeToday());
+
+  // ── Initial fetch ──────────────────────────────────────────────────
   useEffect(() => {
     fetchDashboardData();
+  }, []);
+
+  // ── Auto-refresh: date-change detector (every 60 s) + tab focus ───
+  useEffect(() => {
+    // Check every 60 seconds if the office date has changed
+    const interval = setInterval(() => {
+      const today = officeToday();
+      if (today !== lastFetchDate.current) {
+        lastFetchDate.current = today;
+        fetchDashboardData();
+      }
+    }, 60_000);
+
+    // Also re-fetch when the user switches back to this tab
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const today = officeToday();
+        if (today !== lastFetchDate.current) {
+          lastFetchDate.current = today;
+          fetchDashboardData();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, []);
 
   const fetchAttendanceStatus = async () => {
@@ -41,8 +79,9 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
 
   const fetchDashboardData = async () => {
     try {
-      const [_statusResult, leaves, tours] = await Promise.all([
+      const [_statusResult, weeklyData, leaves, tours] = await Promise.all([
         fetchAttendanceStatus(),
+        DualModeService.getWeeklyHours(),
         DualModeService.getLeaveHistory(),
         DualModeService.getTourHistory()
       ]);
@@ -54,7 +93,7 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
       const pendingTours = tourList.filter((tour: any) => tour.status === 'pending').length;
 
       setStats({
-        weeklyHours: 42, // TODO: calculate from attendance history
+        weeklyHours: weeklyData?.weekly_hours ?? 0,
         pendingRequests: pendingLeaves + pendingTours,
         approvedLeaves: leaveList.filter((leave: any) => leave.status === 'approved').length
       });
@@ -97,21 +136,13 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
     setLoading(false);
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   // Derive display values from attendanceStatus
   const getStatusDisplay = () => {
     switch (attendanceStatus) {
       case 'checked_in_only':
         return {
           label: 'Checked In',
-          subtitle: checkInTime ? `Since ${formatTime(checkInTime)}` : '',
+          subtitle: checkInTime ? `Since ${formatOfficeTime(checkInTime)}` : '',
           color: 'text-green-600 dark:text-green-400',
           icon: Timer,
           iconBg: 'bg-green-100 dark:bg-green-900/30',
@@ -120,7 +151,7 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
         return {
           label: 'Completed',
           subtitle: checkInTime && checkOutTime
-            ? `${formatTime(checkInTime)} – ${formatTime(checkOutTime)}`
+            ? `${formatOfficeTime(checkInTime)} – ${formatOfficeTime(checkOutTime)}`
             : '',
           color: 'text-blue-600 dark:text-blue-400',
           icon: CheckCircle,

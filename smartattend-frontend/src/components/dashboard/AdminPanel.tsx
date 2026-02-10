@@ -426,7 +426,7 @@ export const AdminPanel = () => {
         </TabsContent>
 
         <TabsContent value="add-employee" className="space-y-4">
-          <AddEmployeeForm />
+          <AddEmployeeForm onEmployeeAdded={fetchEmployees} />
         </TabsContent>
       </Tabs>
 
