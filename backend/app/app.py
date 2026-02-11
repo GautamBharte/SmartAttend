@@ -17,7 +17,7 @@ def create_app(test_config=None):
     CORS(app)
 
     # Register models (even if unused directly, this ensures Alembic sees them)
-    from app.models import user, attendance, leave, tour, otp
+    from app.models import user, attendance, leave, tour, otp, holiday, leave_balance, weekend_config
 
     # Register all route blueprints here
     from app.routes import auth, attendance, leave_tour, admin

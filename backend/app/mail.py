@@ -9,15 +9,25 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 
+def _clean_env_var(value: str | None, default: str = "") -> str:
+    """Clean environment variable by stripping whitespace and trailing '=' characters.
+    
+    Docker-compose sometimes adds trailing '=' to env vars, so we strip them.
+    """
+    if value is None:
+        return default
+    return value.rstrip("=").strip()
+
+
 # ── SMTP configuration (set in .env / docker-compose) ────────────────
-SMTP_HOST = os.getenv("SMTP_HOST", "")            # e.g. smtp.gmail.com
-SMTP_PORT = int(os.getenv("SMTP_PORT", 587))       # 587 for TLS, 465 for SSL
-SMTP_USER = os.getenv("SMTP_USER", "")             # sender email
-SMTP_PASS = os.getenv("SMTP_PASS", "")             # app password / SMTP password
-SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes")
+SMTP_HOST = _clean_env_var(os.getenv("SMTP_HOST"), "")            # e.g. smtp.gmail.com
+SMTP_PORT = int(_clean_env_var(os.getenv("SMTP_PORT"), "587"))       # 587 for TLS, 465 for SSL
+SMTP_USER = _clean_env_var(os.getenv("SMTP_USER"), "")             # sender email
+SMTP_PASS = _clean_env_var(os.getenv("SMTP_PASS"), "")             # app password / SMTP password
+SMTP_USE_TLS = _clean_env_var(os.getenv("SMTP_USE_TLS"), "true").lower() in ("true", "1", "yes")
 REPORT_RECIPIENTS = [
     addr.strip()
-    for addr in os.getenv("REPORT_RECIPIENTS", "").split(",")
+    for addr in _clean_env_var(os.getenv("REPORT_RECIPIENTS"), "").split(",")
     if addr.strip()
 ]
 
