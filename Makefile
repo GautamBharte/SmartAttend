@@ -1,8 +1,8 @@
 # Makefile in SmartAttend/
 
 ENV_FILE=backend/.env
-COMPOSE_DEV=docker compose --env-file $(ENV_FILE) -f docker/docker-compose.yml
-COMPOSE_PROD=docker compose --env-file $(ENV_FILE) -f docker/docker-compose.prod.yml
+COMPOSE_DEV=docker-compose --env-file $(ENV_FILE) -f docker/docker-compose.yml
+COMPOSE_PROD=docker-compose --env-file $(ENV_FILE) -f docker/docker-compose.prod.yml
 
 # Export environment variables from .env
 export $(shell grep -v '^#' $(ENV_FILE) | xargs)
