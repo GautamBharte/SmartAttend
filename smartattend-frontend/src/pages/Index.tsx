@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { DualModeService } from '@/services/dualModeService';
+import { NetworkStatus } from '@/components/layout/NetworkStatus';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -133,11 +134,15 @@ const Index = () => {
 
   console.log('Rendering Index - isAuthenticated:', isAuthenticated, 'user:', user);
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />;
-  }
-
-  return <Dashboard user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />;
+  return (
+    <NetworkStatus>
+      {!isAuthenticated ? (
+        <LoginForm onLogin={handleLogin} />
+      ) : (
+        <Dashboard user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />
+      )}
+    </NetworkStatus>
+  );
 };
 
 export default Index;

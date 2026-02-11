@@ -84,6 +84,7 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 export const LoginForm = ({ onLogin }: LoginFormProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
 
   // ── Forgot password OTP flow ────────────────────────────────────────
   type ForgotStep = 'hidden' | 'email' | 'sending' | 'otp' | 'verifying' | 'done';
@@ -376,15 +377,24 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password" className="dark:text-white">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={loginData.password}
-                onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-                required
-                className="dark:bg-gray-700 dark:text-white"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showLoginPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={loginData.password}
+                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                  required
+                  className="dark:bg-gray-700 dark:text-white pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
