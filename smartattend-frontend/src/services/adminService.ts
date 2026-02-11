@@ -165,6 +165,105 @@ class AdminService {
     const token = localStorage.getItem('token');
     return `${API_BASE_URL}/admin/preview-daily-report?token=${token}`;
   }
+
+  // ── Holiday Management ────────────────────────────────────────────────
+
+  async getHolidays(year?: number): Promise<Holiday[]> {
+    const params = year ? `?year=${year}` : '';
+    const response = await fetch(`${API_BASE_URL}/admin/holidays${params}`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch holidays');
+    }
+
+    return response.json();
+  }
+
+  async addHoliday(holiday: { date: string; name: string; type?: string }): Promise<{ message: string; id: number }> {
+    const response = await fetch(`${API_BASE_URL}/admin/holidays`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify(holiday),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to add holiday');
+    }
+
+    return response.json();
+  }
+
+  async deleteHoliday(holidayId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/holidays/${holidayId}`, {
+      method: 'DELETE',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete holiday');
+    }
+
+    return response.json();
+  }
+
+  async seedHolidays(year: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/holidays/seed`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify({ year }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to seed holidays');
+    }
+
+    return response.json();
+  }
+
+  // ── Weekend Configuration ────────────────────────────────────────────
+
+  async getWeekendConfig(): Promise<{ weekend_days: number[]; weekend_days_string: string }> {
+    const response = await fetch(`${API_BASE_URL}/admin/weekend-config`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch weekend config');
+    }
+
+    return response.json();
+  }
+
+  async updateWeekendConfig(weekendDays: number[]): Promise<{ message: string; weekend_days: number[] }> {
+    const response = await fetch(`${API_BASE_URL}/admin/weekend-config`, {
+      method: 'PATCH',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify({ weekend_days: weekendDays }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to update weekend config');
+    }
+
+    return response.json();
+  }
+}
+
+export interface Holiday {
+  id: number;
+  date: string;
+  name: string;
+  type: string;
 }
 
 export interface BulkUploadResult {

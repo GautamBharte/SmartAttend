@@ -3,11 +3,12 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Calendar, FileText, CheckCircle, XCircle, Mail, Eye, Send, Loader2, ExternalLink, AlertCircle, Clock } from 'lucide-react';
+import { Users, Calendar, FileText, CheckCircle, XCircle, Mail, Eye, Send, Loader2, ExternalLink, AlertCircle, Clock, CalendarDays } from 'lucide-react';
 import { adminService, type SearchFilters, type AdminLeave, type AdminTour, type Employee } from '../..//services/adminService';
 import { AdminSearchFilters } from './AdminSearchFilters';
 import { DetailModal } from './DetailModal';
 import { AddEmployeeForm } from './AddEmployeeForm';
+import { HolidayManagement } from './HolidayManagement';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -411,6 +412,10 @@ export const AdminPanel = () => {
           <TabsTrigger value="leaves">Leave Requests</TabsTrigger>
           <TabsTrigger value="tours">Tour Requests</TabsTrigger>
           <TabsTrigger value="add-employee">Add Employee</TabsTrigger>
+          <TabsTrigger value="holidays">
+            <CalendarDays className="w-4 h-4 mr-1.5" />
+            Holidays
+          </TabsTrigger>
           <TabsTrigger value="daily-report">
             <Mail className="w-4 h-4 mr-1.5" />
             Daily Report
@@ -659,6 +664,10 @@ export const AdminPanel = () => {
 
         <TabsContent value="add-employee" className="space-y-4">
           <AddEmployeeForm onEmployeeAdded={fetchEmployees} />
+        </TabsContent>
+
+        <TabsContent value="holidays" className="space-y-4">
+          <HolidayManagement />
         </TabsContent>
 
         <TabsContent value="daily-report" className="space-y-4">

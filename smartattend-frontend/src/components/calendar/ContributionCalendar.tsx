@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { DualModeService } from '@/services/dualModeService';
 import { OFFICE } from '@/config/api';
 
-type DayType = 'work' | 'leave' | 'tour';
+type DayType = 'work' | 'leave' | 'tour' | 'holiday' | 'weekend';
 
 interface DayData {
   type: DayType;
@@ -39,13 +39,54 @@ export const ContributionCalendar = () => {
 
   const fetchCalendarData = async () => {
     try {
-      const [attendanceRes, leaves, tours] = await Promise.all([
+      const currentYear = new Date().getFullYear();
+      const [attendanceRes, leaves, tours, holidaysCur, holidaysPrev, weekendConfig] = await Promise.all([
         DualModeService.getAttendanceHistory(),
         DualModeService.getLeaveHistory(),
         DualModeService.getTourHistory(),
+        DualModeService.getHolidays(currentYear),
+        DualModeService.getHolidays(currentYear - 1),
+        DualModeService.getWeekendConfig(),
       ]);
 
       const map: CalendarMap = {};
+
+      // Get weekend days from config (default to Sunday only if not available)
+      const weekendDays = weekendConfig?.weekend_days || [6]; // 6 = Sunday
+
+      // Mark holidays first (lowest priority — attendance/leave/tour override)
+      const allHolidays = [...(holidaysPrev ?? []), ...(holidaysCur ?? [])];
+      const holidaySet = new Set<string>();
+      for (const h of allHolidays) {
+        holidaySet.add(h.date);
+        map[h.date] = { type: 'holiday', intensity: 1, tooltip: `🏷️ ${h.name}` };
+      }
+
+      // Mark weekend days in the visible range (past year)
+      const today = new Date();
+      const oneYearAgo = new Date(today);
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      
+      // JavaScript getDay(): Sunday=0, Monday=1, ..., Saturday=6
+      // Python weekday: Monday=0, ..., Sunday=6
+      // Convert Python weekday to JavaScript getDay()
+      const jsWeekendDays = weekendDays.map((pyDay: number) => {
+        // Python: Mon=0, Tue=1, ..., Sun=6
+        // JS: Sun=0, Mon=1, ..., Sat=6
+        if (pyDay === 6) return 0; // Sunday: Python 6 -> JS 0
+        return pyDay + 1; // Others: Python 0-5 -> JS 1-6
+      });
+
+      for (let d = new Date(oneYearAgo); d <= today; d.setDate(d.getDate() + 1)) {
+        const jsDay = d.getDay(); // JavaScript day (0=Sunday, 6=Saturday)
+        if (jsWeekendDays.includes(jsDay)) {
+          const ds = d.toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
+          if (!map[ds]) {
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            map[ds] = { type: 'weekend', intensity: 1, tooltip: `${dayNames[jsDay]} (weekly off)` };
+          }
+        }
+      }
 
       const history = Array.isArray(attendanceRes)
         ? attendanceRes
@@ -74,7 +115,10 @@ export const ContributionCalendar = () => {
         const end = new Date(leave.end_date + 'T00:00:00');
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const ds = d.toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
-          if (!map[ds]) {
+          if (!map[ds] || map[ds].type === 'weekend' || map[ds].type === 'holiday') {
+            // Don't override attendance data with leave
+          }
+          if (!map[ds] || map[ds].type !== 'work') {
             map[ds] = { type: 'leave', intensity: 1, tooltip: `Leave${leave.status === 'pending' ? ' (pending)' : ''}${leave.reason ? ': ' + leave.reason : ''}` };
           }
         }
@@ -87,7 +131,7 @@ export const ContributionCalendar = () => {
         const end = new Date(tour.end_date + 'T00:00:00');
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
           const ds = d.toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
-          if (!map[ds]) {
+          if (!map[ds] || (map[ds].type !== 'work' && map[ds].type !== 'leave')) {
             map[ds] = { type: 'tour', intensity: 1, tooltip: `Tour: ${tour.location || ''}${tour.status === 'pending' ? ' (pending)' : ''}` };
           }
         }
@@ -169,6 +213,10 @@ export const ContributionCalendar = () => {
         return 'bg-yellow-300 dark:bg-yellow-500';
       case 'tour':
         return 'bg-blue-300 dark:bg-blue-500';
+      case 'holiday':
+        return 'bg-red-300 dark:bg-red-500';
+      case 'weekend':
+        return 'bg-gray-300 dark:bg-gray-600';
       default:
         return 'bg-gray-200 dark:bg-gray-800';
     }
@@ -203,6 +251,10 @@ export const ContributionCalendar = () => {
         return `Leave on ${monthDay}`;
       case 'tour':
         return `Tour on ${monthDay}`;
+      case 'holiday':
+        return data.tooltip || `Holiday on ${monthDay}`;
+      case 'weekend':
+        return data.tooltip || `Weekend (weekly off) – ${monthDay}`;
       default:
         return `No activity on ${monthDay}`;
     }
@@ -229,7 +281,7 @@ export const ContributionCalendar = () => {
         </select>
 
         {/* Type legend */}
-        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
           <div className="flex items-center gap-1">
             <div className="w-[10px] h-[10px] rounded-sm bg-green-500 dark:bg-green-500" />
             <span>Work</span>
@@ -241,6 +293,14 @@ export const ContributionCalendar = () => {
           <div className="flex items-center gap-1">
             <div className="w-[10px] h-[10px] rounded-sm bg-blue-400 dark:bg-blue-500" />
             <span>Tour</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-[10px] h-[10px] rounded-sm bg-red-400 dark:bg-red-500" />
+            <span>Holiday</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <div className="w-[10px] h-[10px] rounded-sm bg-gray-300 dark:bg-gray-600" />
+            <span>Weekend</span>
           </div>
         </div>
       </div>

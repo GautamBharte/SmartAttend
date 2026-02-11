@@ -437,6 +437,50 @@ export class DualModeService {
     }
   }
 
+  static async getLeaveBalance(year?: number) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { year: year || new Date().getFullYear(), total: 21, used: 3, pending: 2, available: 16 };
+    } else {
+      const params = year ? `?year=${year}` : '';
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/balance${params}`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch leave balance');
+      return response.json();
+    }
+  }
+
+  static async getHolidays(year?: number) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return [];
+    } else {
+      const params = year ? `?year=${year}` : '';
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/holidays${params}`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch holidays');
+      return response.json();
+    }
+  }
+
+  static async getWeekendConfig() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { weekend_days: [6] }; // Default: Sunday only
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/weekend-config`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch weekend config');
+      return response.json();
+    }
+  }
+
   private static getAuthHeaders() {
     const token = USE_DUMMY_API ? this.token : localStorage.getItem('token');
     return {

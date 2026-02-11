@@ -3,7 +3,7 @@ import { authService } from './authService';
 const API_BASE_URL = 'http://localhost:8000';
 
 class RequestService {
-  async applyLeave(leaveData: { start_date: string; end_date: string; reason: string }) {
+  async applyLeave(leaveData: { start_date: string; end_date: string; reason: string; leave_type?: string }) {
     const response = await fetch(`${API_BASE_URL}/request/leave/apply`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
@@ -86,6 +86,50 @@ class RequestService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to update tour status');
+    }
+
+    return response.json();
+  }
+
+  async getLeaveBalance(year?: number) {
+    const params = year ? `?year=${year}` : '';
+    const response = await fetch(`${API_BASE_URL}/request/leave/balance${params}`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch leave balance');
+    }
+
+    return response.json();
+  }
+
+  async getHolidays(year?: number) {
+    const params = year ? `?year=${year}` : '';
+    const response = await fetch(`${API_BASE_URL}/request/holidays${params}`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch holidays');
+    }
+
+    return response.json();
+  }
+
+  async getWeekendConfig() {
+    const response = await fetch(`${API_BASE_URL}/request/weekend-config`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch weekend config');
     }
 
     return response.json();
