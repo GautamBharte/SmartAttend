@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { DualModeService } from '@/services/dualModeService';
-import { NetworkStatus } from '@/components/layout/NetworkStatus';
+import { NetworkStatus, BACKEND_UNREACHABLE_EVENT } from '@/components/layout/NetworkStatus';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -103,7 +103,7 @@ const Index = () => {
     }
   };
 
-  // Add global error handling — only intercept 401 (Unauthorized)
+  // Add global error handling — intercept 401 + network errors
   useEffect(() => {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
@@ -114,6 +114,10 @@ const Index = () => {
         }
         return response;
       } catch (error) {
+        // TypeError means the request never reached the server (network down / CORS preflight failed)
+        if (error instanceof TypeError) {
+          window.dispatchEvent(new Event(BACKEND_UNREACHABLE_EVENT));
+        }
         handleApiError(error);
         throw error;
       }

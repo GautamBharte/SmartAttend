@@ -1,72 +1,159 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { API_CONFIG, USE_DUMMY_API } from '@/config/api';
 import { WifiOff, RefreshCw, ServerOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-/** How often (ms) to ping the backend while connected. */
-const PING_INTERVAL = 15_000;
-/** How often (ms) to retry when disconnected. */
+/** How often (ms) to poll /ping while disconnected & tab visible. */
 const RETRY_INTERVAL = 5_000;
-/** Timeout for a single ping request (ms). */
+/** Timeout for a single ping (ms). */
 const PING_TIMEOUT = 5_000;
 
 /**
- * Full-screen overlay shown when the backend is unreachable.
- * Periodically pings `GET /ping` and auto-recovers once the backend responds.
- * Skipped entirely when running in dummy-API mode.
+ * Custom event name dispatched by the global fetch interceptor (in Index.tsx)
+ * whenever a real API call fails with a network error.
+ */
+export const BACKEND_UNREACHABLE_EVENT = 'backend-unreachable';
+
+/**
+ * Reactive connectivity guard — zero overhead while the backend is reachable.
+ *
+ * Detection (instant):
+ *   • Browser `offline` event
+ *   • Custom `backend-unreachable` event fired by the global fetch interceptor
+ *     whenever any real API call throws a TypeError (network failure)
+ *
+ * Recovery (polling only when down):
+ *   • Pings GET /ping every 5 s until the backend responds
+ *   • Pauses polling when the tab is hidden (saves CPU + network)
+ *   • Resumes on `online` event or tab focus
+ *
+ * Skipped entirely when USE_DUMMY_API is true.
  */
 export const NetworkStatus = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(true);
   const [checking, setChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const retryTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const ping = useCallback(async () => {
-    if (USE_DUMMY_API) return; // no backend to ping
+  // ── Ping helper ────────────────────────────────────────────────────
+  const ping = useCallback(async (): Promise<boolean> => {
     setChecking(true);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), PING_TIMEOUT);
-
       const res = await fetch(`${API_CONFIG.BASE_URL}/ping`, {
         method: 'GET',
         signal: controller.signal,
       });
       clearTimeout(timeout);
-
-      setIsConnected(res.ok);
+      return res.ok;
     } catch {
-      setIsConnected(false);
+      return false;
     } finally {
       setChecking(false);
       setLastChecked(new Date());
     }
   }, []);
 
-  // Initial check + periodic polling
-  useEffect(() => {
-    if (USE_DUMMY_API) return;
+  // ── Mark disconnected & start recovery polling ─────────────────────
+  const startRecovery = useCallback(() => {
+    setIsConnected(false);
 
-    // Check immediately on mount
-    ping();
+    // Don't stack timers
+    if (retryTimer.current) return;
 
-    const id = setInterval(ping, isConnected ? PING_INTERVAL : RETRY_INTERVAL);
-    return () => clearInterval(id);
-  }, [ping, isConnected]);
+    retryTimer.current = setInterval(async () => {
+      // Pause when tab is hidden
+      if (document.hidden) return;
 
-  // Also listen to browser online/offline events
-  useEffect(() => {
-    if (USE_DUMMY_API) return;
-
-    const goOnline = () => ping();
-    const goOffline = () => setIsConnected(false);
-
-    window.addEventListener('online', goOnline);
-    window.addEventListener('offline', goOffline);
-    return () => {
-      window.removeEventListener('online', goOnline);
-      window.removeEventListener('offline', goOffline);
-    };
+      const ok = await ping();
+      if (ok) {
+        setIsConnected(true);
+        if (retryTimer.current) {
+          clearInterval(retryTimer.current);
+          retryTimer.current = null;
+        }
+      }
+    }, RETRY_INTERVAL);
   }, [ping]);
+
+  // ── Stop recovery polling ──────────────────────────────────────────
+  const stopRecovery = useCallback(() => {
+    if (retryTimer.current) {
+      clearInterval(retryTimer.current);
+      retryTimer.current = null;
+    }
+  }, []);
+
+  // ── Initial ping on mount (one-time) ──────────────────────────────
+  useEffect(() => {
+    if (USE_DUMMY_API) return;
+    (async () => {
+      const ok = await ping();
+      if (!ok) startRecovery();
+    })();
+    return stopRecovery;
+  }, [ping, startRecovery, stopRecovery]);
+
+  // ── Browser online / offline events ────────────────────────────────
+  useEffect(() => {
+    if (USE_DUMMY_API) return;
+
+    const handleOffline = () => startRecovery();
+    const handleOnline = async () => {
+      const ok = await ping();
+      if (ok) {
+        setIsConnected(true);
+        stopRecovery();
+      }
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+    return () => {
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [ping, startRecovery, stopRecovery]);
+
+  // ── Custom event fired by the global fetch interceptor ─────────────
+  useEffect(() => {
+    if (USE_DUMMY_API) return;
+
+    const handleUnreachable = () => startRecovery();
+
+    window.addEventListener(BACKEND_UNREACHABLE_EVENT, handleUnreachable);
+    return () => window.removeEventListener(BACKEND_UNREACHABLE_EVENT, handleUnreachable);
+  }, [startRecovery]);
+
+  // ── Resume polling when hidden tab becomes visible again ───────────
+  useEffect(() => {
+    if (USE_DUMMY_API) return;
+
+    const handleVisibility = async () => {
+      if (document.hidden) return;
+      // Tab just became visible — do a quick check if we were disconnected
+      if (!isConnected) {
+        const ok = await ping();
+        if (ok) {
+          setIsConnected(true);
+          stopRecovery();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isConnected, ping, stopRecovery]);
+
+  // ── Manual retry ───────────────────────────────────────────────────
+  const handleRetry = async () => {
+    const ok = await ping();
+    if (ok) {
+      setIsConnected(true);
+      stopRecovery();
+    }
+  };
 
   // When connected (or dummy mode), just render children
   if (USE_DUMMY_API || isConnected) return <>{children}</>;
@@ -110,7 +197,7 @@ export const NetworkStatus = ({ children }: { children: React.ReactNode }) => {
 
         {/* Retry button */}
         <Button
-          onClick={ping}
+          onClick={handleRetry}
           disabled={checking}
           variant="outline"
           className="mx-auto"
