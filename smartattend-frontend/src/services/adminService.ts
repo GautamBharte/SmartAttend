@@ -8,6 +8,9 @@ export interface Employee {
   name: string;
   email: string;
   created_at: string;
+  today_status: 'checked_in' | 'checked_out' | 'absent';
+  check_in_time: string | null;
+  check_out_time: string | null;
 }
 
 export interface AdminLeave {

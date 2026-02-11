@@ -3,8 +3,10 @@ from werkzeug.security import generate_password_hash
 from app.models.user import User
 from app.models.leave import Leave
 from app.models.tour import Tour
+from app.models.attendance import Attendance
 from app.app import db
 from app.routes.auth import token_required
+from app.office_config import office_today, to_utc_iso
 import jwt, os, csv, io
 from functools import wraps
 
@@ -59,12 +61,27 @@ def get_employees():
     query = User.query.filter(User.role == "employee")
     query = apply_filters(query, User)
     employees = query.all()
-    return jsonify([{
-        "id": emp.id,
-        "name": emp.name,
-        "email": emp.email,
-        "created_at": emp.created_at.isoformat()
-    } for emp in employees]), 200
+
+    today = office_today()
+    result = []
+    for emp in employees:
+        record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+        if record and record.check_in_time:
+            today_status = "checked_out" if record.check_out_time else "checked_in"
+        else:
+            today_status = "absent"
+
+        result.append({
+            "id": emp.id,
+            "name": emp.name,
+            "email": emp.email,
+            "created_at": emp.created_at.isoformat(),
+            "today_status": today_status,
+            "check_in_time": to_utc_iso(record.check_in_time) if record else None,
+            "check_out_time": to_utc_iso(record.check_out_time) if record else None,
+        })
+
+    return jsonify(result), 200
 
 
 @admin_bp.route("/admin/leaves", methods=["GET"])

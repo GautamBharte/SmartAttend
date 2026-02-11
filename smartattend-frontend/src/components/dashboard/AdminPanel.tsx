@@ -11,7 +11,7 @@ import { AddEmployeeForm } from './AddEmployeeForm';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { OFFICE } from '@/config/api';
+import { OFFICE, formatOfficeTime } from '@/config/api';
 
 /* ─── Daily Report Section ──────────────────────────────────────────── */
 
@@ -206,8 +206,6 @@ const DailyReportSection = () => {
               <li>Sent automatically every day at <strong>10:00 PM</strong> (office timezone). Manual send is available after office hours.</li>
               <li>Includes every employee's status: <strong>Present</strong> or <strong>Absent</strong>.</li>
               <li>Shows entry &amp; exit times for present employees.</li>
-              <li>Recipients are configured via the <code className="bg-blue-100 px-1 rounded">REPORT_RECIPIENTS</code> env var.</li>
-              <li>Requires SMTP settings (<code className="bg-blue-100 px-1 rounded">SMTP_HOST</code>, <code className="bg-blue-100 px-1 rounded">SMTP_USER</code>, <code className="bg-blue-100 px-1 rounded">SMTP_PASS</code>) in <code className="bg-blue-100 px-1 rounded">.env</code>.</li>
             </ul>
           </div>
         </CardContent>
@@ -435,8 +433,9 @@ export const AdminPanel = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Joined</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Entry Time</TableHead>
+                    <TableHead>Exit Time</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -444,8 +443,33 @@ export const AdminPanel = () => {
                   {employees.map((employee) => (
                     <TableRow key={employee.id}>
                       <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>{employee.email}</TableCell>
-                      <TableCell>{formatDate(employee.created_at)}</TableCell>
+                      <TableCell>
+                        <Badge className={
+                          employee.today_status === 'checked_in'
+                            ? 'bg-green-100 text-green-800'
+                            : employee.today_status === 'checked_out'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-red-100 text-red-800'
+                        }>
+                          {employee.today_status === 'checked_in'
+                            ? 'Present'
+                            : employee.today_status === 'checked_out'
+                            ? 'Completed'
+                            : 'Absent'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {employee.check_in_time
+                          ? formatOfficeTime(employee.check_in_time)
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {employee.check_out_time
+                          ? formatOfficeTime(employee.check_out_time)
+                          : employee.check_in_time
+                          ? 'Still in office'
+                          : '—'}
+                      </TableCell>
                       <TableCell>
                         <Button
                           variant="outline"

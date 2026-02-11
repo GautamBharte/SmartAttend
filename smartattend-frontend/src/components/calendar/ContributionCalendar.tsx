@@ -73,8 +73,10 @@ export const ContributionCalendar = () => {
         const start = new Date(leave.start_date + 'T00:00:00');
         const end = new Date(leave.end_date + 'T00:00:00');
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const ds = d.toISOString().split('T')[0];
-          map[ds] = { type: 'leave', intensity: 1, tooltip: `Leave${leave.status === 'pending' ? ' (pending)' : ''}${leave.reason ? ': ' + leave.reason : ''}` };
+          const ds = d.toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
+          if (!map[ds]) {
+            map[ds] = { type: 'leave', intensity: 1, tooltip: `Leave${leave.status === 'pending' ? ' (pending)' : ''}${leave.reason ? ': ' + leave.reason : ''}` };
+          }
         }
       }
 
@@ -84,8 +86,10 @@ export const ContributionCalendar = () => {
         const start = new Date(tour.start_date + 'T00:00:00');
         const end = new Date(tour.end_date + 'T00:00:00');
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const ds = d.toISOString().split('T')[0];
-          map[ds] = { type: 'tour', intensity: 1, tooltip: `Tour: ${tour.location || ''}${tour.status === 'pending' ? ' (pending)' : ''}` };
+          const ds = d.toLocaleDateString('en-CA', { timeZone: OFFICE.TIMEZONE });
+          if (!map[ds]) {
+            map[ds] = { type: 'tour', intensity: 1, tooltip: `Tour: ${tour.location || ''}${tour.status === 'pending' ? ' (pending)' : ''}` };
+          }
         }
       }
 
