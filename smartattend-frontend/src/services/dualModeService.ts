@@ -187,19 +187,18 @@ export class DualModeService {
     }
   }
 
-  static async forgotPassword(email: string) {
+  /** Request an OTP to be sent to the given email for password reset (no auth). */
+  static async forgotPassword(email: string): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
 
       const user = Object.values(mockUsers).find(u => u.email === email);
       if (!user) {
-        throw new Error('User not found');
+        // Mimic backend: don't reveal whether the email exists
+        return { message: 'If an account with that email exists, an OTP has been sent.' };
       }
 
-      return {
-        message: 'Reset token generated',
-        reset_token: 'dummy_reset_token_123456'
-      };
+      return { message: 'If an account with that email exists, an OTP has been sent.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/forgot-password`, {
         method: 'POST',
@@ -207,25 +206,25 @@ export class DualModeService {
         body: JSON.stringify({ email }),
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to generate reset token');
+        throw new Error(data.error || 'Failed to send reset OTP');
       }
-
-      return response.json();
+      return data;
     }
   }
 
-  static async resetPassword(data: { email: string; new_password: string }) {
+  /** Verify OTP and set a new password (no auth). */
+  static async resetPassword(data: { email: string; otp: string; new_password: string }): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
 
       const user = Object.values(mockUsers).find(u => u.email === data.email);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error('Invalid email or OTP');
       }
 
-      return { message: 'Password reset successfully' };
+      return { message: 'Password reset successfully. You can now log in with your new password.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/reset-password`, {
         method: 'POST',
@@ -233,12 +232,11 @@ export class DualModeService {
         body: JSON.stringify(data),
       });
 
+      const result = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to reset password');
+        throw new Error(result.error || 'Failed to reset password');
       }
-
-      return response.json();
+      return result;
     }
   }
 

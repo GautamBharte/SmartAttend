@@ -124,6 +124,67 @@ def _otp_email_html(code: str, name: str, purpose_title: str, purpose_desc: str)
     """
 
 
+# ── Forgot / reset password (unauthenticated, OTP to email) ──────────
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """Send a 6-digit OTP to the user's email so they can reset their password."""
+    if not is_smtp_configured():
+        return jsonify({'error': 'Email service is not configured. Contact your administrator.'}), 503
+
+    data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
+    if not email:
+        return jsonify({'error': 'Email is required'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        # Don't reveal whether the email exists — always return success
+        return jsonify({'message': f'If an account with that email exists, an OTP has been sent.'}), 200
+
+    otp = OTPModel.generate(user.id, purpose='forgot_password')
+
+    html = _otp_email_html(
+        otp.code, user.name,
+        "🔑 Password Reset OTP",
+        "Use the code below to reset your SmartAttend password.",
+    )
+    send_html_email(
+        subject="Your SmartAttend password reset OTP",
+        html_body=html,
+        recipients=[user.email],
+    )
+
+    return jsonify({'message': f'If an account with that email exists, an OTP has been sent.'}), 200
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """Verify OTP and set a new password — no login required."""
+    data = request.get_json()
+    email = (data.get('email') or '').strip().lower()
+    otp_code = data.get('otp')
+    new_password = data.get('new_password')
+
+    if not all([email, otp_code, new_password]):
+        return jsonify({'error': 'Email, OTP, and new password are required'}), 400
+
+    if len(new_password) < 6:
+        return jsonify({'error': 'Password must be at least 6 characters'}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({'error': 'Invalid email or OTP'}), 400
+
+    if not OTPModel.verify(user.id, otp_code, purpose='forgot_password'):
+        return jsonify({'error': 'Invalid or expired OTP'}), 400
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({'message': 'Password reset successfully. You can now log in with your new password.'}), 200
+
+
 # ── OTP-based password change ─────────────────────────────────────────
 
 @auth_bp.route('/request-otp', methods=['POST'])

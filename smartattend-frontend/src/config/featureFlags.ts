@@ -14,13 +14,13 @@ export const FEATURE_FLAGS = {
     attendance: true,
 
     /** Leave request management */
-    leave: false,
+    leave: true,
 
     /** Tour request management */
     tour: false,
 
     /** Admin panel (employee mgmt, reports, CSV upload, daily report) */
-    admin: false,
+    admin: true,
 } as const;
 
 export type FeatureTab = keyof typeof FEATURE_FLAGS;
