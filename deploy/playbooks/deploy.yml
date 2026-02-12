@@ -9,18 +9,59 @@
 
   tasks:
     # ── 1. Sync source code ─────────────────────────────────────
-    - name: Sync project files to Pi
-      synchronize:
-        src: "{{ playbook_dir }}/../../"
-        dest: "{{ app_dir }}/"
-        rsync_opts:
-          - "--exclude=node_modules"
-          - "--exclude=.git"
-          - "--exclude=env"
-          - "--exclude=__pycache__"
-          - "--exclude=dist"
-          - "--exclude=.env"
-        delete: false
+    - name: Create temporary archive of project
+      archive:
+        path: "{{ playbook_dir }}/../../"
+        dest: /tmp/smartattend-deploy.tar.gz
+        exclude_path:
+          - "{{ playbook_dir }}/../../node_modules"
+          - "{{ playbook_dir }}/../../.git"
+          - "{{ playbook_dir }}/../../env"
+          - "{{ playbook_dir }}/../../**/__pycache__"
+          - "{{ playbook_dir }}/../../dist"
+          - "{{ playbook_dir }}/../../backend/.env"
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy archive to Pi
+      copy:
+        src: /tmp/smartattend-deploy.tar.gz
+        dest: /tmp/smartattend-deploy.tar.gz
+        mode: "0644"
+
+    - name: Extract archive on Pi
+      shell: |
+        mkdir -p {{ app_dir }}
+        # Extract to temp directory first to inspect structure
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        tar -xzf /tmp/smartattend-deploy.tar.gz
+        # If archive contains SmartAttend directory, move its contents
+        if [ -d "$TEMP_DIR/SmartAttend" ]; then
+          cp -r "$TEMP_DIR/SmartAttend"/* {{ app_dir }}/
+        else
+          # Otherwise, move all extracted contents
+          cp -r "$TEMP_DIR"/* {{ app_dir }}/
+        fi
+        rm -rf "$TEMP_DIR"
+
+    - name: Clean up temporary archive on Pi
+      file:
+        path: /tmp/smartattend-deploy.tar.gz
+        state: absent
+
+    - name: Clean up temporary archive on localhost
+      file:
+        path: /tmp/smartattend-deploy.tar.gz
+        state: absent
+      delegate_to: localhost
+      become: false
 
     # ── 2. Template the .env ────────────────────────────────────
     - name: Write backend .env from template
@@ -31,10 +72,12 @@
 
     # ── 3. Set frontend API URL for reverse proxy ───────────────
     - name: Set API_CONFIG.BASE_URL for production
-      lineinfile:
-        path: "{{ frontend_dir }}/src/config/api.ts"
-        regexp: "^\\s*BASE_URL:"
-        line: "  BASE_URL: '{{ api_base_url }}',"
+      shell: |
+        if [ -z "{{ api_base_url }}" ]; then
+          sed -i "s|^\\s*BASE_URL:.*|  BASE_URL: '',|" "{{ frontend_dir }}/src/config/api.ts"
+        else
+          sed -i "s|^\\s*BASE_URL:.*|  BASE_URL: '{{ api_base_url }}',|" "{{ frontend_dir }}/src/config/api.ts"
+        fi
 
     # ── 4. Build frontend ───────────────────────────────────────
     - name: Install frontend dependencies
@@ -49,11 +92,10 @@
 
     - name: Deploy frontend dist to web root
       become: true
-      synchronize:
-        src: "{{ frontend_dir }}/dist/"
-        dest: "{{ web_root }}/"
-        delete: true
-      delegate_to: "{{ inventory_hostname }}"
+      shell: |
+        rm -rf {{ web_root }}/*
+        cp -r {{ frontend_dir }}/dist/* {{ web_root }}/
+        chown -R www-data:www-data {{ web_root }}
 
     # ── 5. Build & start backend (production compose) ───────────
     - name: Build production Docker images

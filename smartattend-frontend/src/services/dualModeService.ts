@@ -163,12 +163,6 @@ export class DualModeService {
         throw new Error('User already exists');
       }
 
-      const newUser = {
-        id: Object.keys(mockUsers).length + 1,
-        ...userData,
-        role: userData.role || 'employee'
-      };
-
       // In real app, this would persist to storage
       return { message: 'User registered successfully' };
     } else {

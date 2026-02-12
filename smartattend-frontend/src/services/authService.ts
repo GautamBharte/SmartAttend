@@ -1,9 +1,8 @@
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_CONFIG } from '@/config/api';
 
 class AuthService {
   async login(credentials: { email: string; password: string }) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -20,7 +19,7 @@ class AuthService {
   }
 
   async register(userData: { name: string; email: string; password: string; role?: string }) {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

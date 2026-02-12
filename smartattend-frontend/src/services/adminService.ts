@@ -1,7 +1,6 @@
 
 import { authService } from './authService';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_CONFIG } from '@/config/api';
 
 export interface Employee {
   id: number;
@@ -57,7 +56,7 @@ class AdminService {
 
   async getEmployees(filters: SearchFilters = {}): Promise<Employee[]> {
     const queryParams = this.buildQueryParams(filters);
-    const response = await fetch(`${API_BASE_URL}/admin/employees?${queryParams}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees?${queryParams}`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -72,7 +71,7 @@ class AdminService {
 
   async getLeaves(filters: SearchFilters = {}): Promise<AdminLeave[]> {
     const queryParams = this.buildQueryParams(filters);
-    const response = await fetch(`${API_BASE_URL}/admin/leaves?${queryParams}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/leaves?${queryParams}`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -87,7 +86,7 @@ class AdminService {
 
   async getTours(filters: SearchFilters = {}): Promise<AdminTour[]> {
     const queryParams = this.buildQueryParams(filters);
-    const response = await fetch(`${API_BASE_URL}/admin/tours?${queryParams}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/tours?${queryParams}`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -101,7 +100,7 @@ class AdminService {
   }
 
   async updateLeaveStatus(leaveId: number, status: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/request/leave/${leaveId}/status`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/${leaveId}/status`, {
       method: 'PATCH',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ status }),
@@ -114,7 +113,7 @@ class AdminService {
   }
 
   async updateTourStatus(tourId: number, status: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/request/tour/${tourId}/status`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/tour/${tourId}/status`, {
       method: 'PATCH',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ status }),
@@ -131,7 +130,7 @@ class AdminService {
     formData.append('file', file);
 
     const token = localStorage.getItem('token');
-    const response = await fetch(`${API_BASE_URL}/admin/employees/bulk-upload`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees/bulk-upload`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }, // no Content-Type — FormData sets it
       body: formData,
@@ -145,11 +144,11 @@ class AdminService {
   }
 
   getCsvTemplateUrl(): string {
-    return `${API_BASE_URL}/admin/employees/csv-template`;
+    return `${API_CONFIG.BASE_URL}/admin/employees/csv-template`;
   }
 
   async sendDailyReport(): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/admin/send-daily-report`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/send-daily-report`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
@@ -163,14 +162,14 @@ class AdminService {
 
   getPreviewReportUrl(): string {
     const token = localStorage.getItem('token');
-    return `${API_BASE_URL}/admin/preview-daily-report?token=${token}`;
+    return `${API_CONFIG.BASE_URL}/admin/preview-daily-report?token=${token}`;
   }
 
   // ── Holiday Management ────────────────────────────────────────────────
 
   async getHolidays(year?: number): Promise<Holiday[]> {
     const params = year ? `?year=${year}` : '';
-    const response = await fetch(`${API_BASE_URL}/admin/holidays${params}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/holidays${params}`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -184,7 +183,7 @@ class AdminService {
   }
 
   async addHoliday(holiday: { date: string; name: string; type?: string }): Promise<{ message: string; id: number }> {
-    const response = await fetch(`${API_BASE_URL}/admin/holidays`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/holidays`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify(holiday),
@@ -199,7 +198,7 @@ class AdminService {
   }
 
   async deleteHoliday(holidayId: number): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/admin/holidays/${holidayId}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/holidays/${holidayId}`, {
       method: 'DELETE',
       headers: authService.getAuthHeaders(),
     });
@@ -213,7 +212,7 @@ class AdminService {
   }
 
   async seedHolidays(year: number): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/admin/holidays/seed`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/holidays/seed`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ year }),
@@ -230,7 +229,7 @@ class AdminService {
   // ── Weekend Configuration ────────────────────────────────────────────
 
   async getWeekendConfig(): Promise<{ weekend_days: number[]; weekend_days_string: string }> {
-    const response = await fetch(`${API_BASE_URL}/admin/weekend-config`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/weekend-config`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -244,7 +243,7 @@ class AdminService {
   }
 
   async updateWeekendConfig(weekendDays: number[]): Promise<{ message: string; weekend_days: number[] }> {
-    const response = await fetch(`${API_BASE_URL}/admin/weekend-config`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/weekend-config`, {
       method: 'PATCH',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ weekend_days: weekendDays }),

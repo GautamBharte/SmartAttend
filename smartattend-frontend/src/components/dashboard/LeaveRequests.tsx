@@ -125,7 +125,6 @@ export const LeaveRequests = () => {
 
   // Build a set of holiday date strings for fast lookup
   const holidayDateSet = new Set(holidays.map(h => h.date));
-  const holidayNameMap = new Map(holidays.map(h => [h.date, h.name]));
 
   // Disable weekend days and public holidays in the date pickers
   const isDateDisabled = (date: Date) => {
@@ -137,7 +136,7 @@ export const LeaveRequests = () => {
       if (pyDay === 6) return 0; // Sunday: Python 6 -> JS 0
       return pyDay + 1; // Others: Python 0-5 -> JS 1-6
     });
-    
+
     if (jsWeekendDays.includes(jsDay)) return true;
     const ds = format(date, 'yyyy-MM-dd');
     return holidayDateSet.has(ds);
@@ -230,7 +229,7 @@ export const LeaveRequests = () => {
                     type="button"
                     variant={formData.leave_type === 'paid' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setFormData({...formData, leave_type: 'paid'})}
+                    onClick={() => setFormData({ ...formData, leave_type: 'paid' })}
                   >
                     Paid Leave
                     {leaveBalance && (
@@ -241,7 +240,7 @@ export const LeaveRequests = () => {
                     type="button"
                     variant={formData.leave_type === 'unpaid' ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setFormData({...formData, leave_type: 'unpaid'})}
+                    onClick={() => setFormData({ ...formData, leave_type: 'unpaid' })}
                   >
                     Unpaid Leave
                   </Button>
@@ -271,7 +270,7 @@ export const LeaveRequests = () => {
                         mode="single"
                         selected={formData.start_date ? new Date(formData.start_date + 'T00:00:00') : undefined}
                         onSelect={(date) =>
-                          setFormData({...formData, start_date: date ? format(date, 'yyyy-MM-dd') : ''})
+                          setFormData({ ...formData, start_date: date ? format(date, 'yyyy-MM-dd') : '' })
                         }
                         disabled={isDateDisabled}
                         modifiers={{
@@ -307,7 +306,7 @@ export const LeaveRequests = () => {
                         mode="single"
                         selected={formData.end_date ? new Date(formData.end_date + 'T00:00:00') : undefined}
                         onSelect={(date) =>
-                          setFormData({...formData, end_date: date ? format(date, 'yyyy-MM-dd') : ''})
+                          setFormData({ ...formData, end_date: date ? format(date, 'yyyy-MM-dd') : '' })
                         }
                         disabled={(date) => {
                           if (isDateDisabled(date)) return true;
@@ -332,7 +331,7 @@ export const LeaveRequests = () => {
                   id="reason"
                   placeholder="Please provide a reason for your leave request"
                   value={formData.reason}
-                  onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
                   required
                 />
               </div>

@@ -12,7 +12,7 @@ import { HolidayManagement } from './HolidayManagement';
 import { toast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { OFFICE, formatOfficeTime } from '@/config/api';
+import { OFFICE, formatOfficeTime, API_CONFIG } from '@/config/api';
 
 /* ─── Daily Report Section ──────────────────────────────────────────── */
 
@@ -68,7 +68,7 @@ const DailyReportSection = () => {
     setPreviewHtml(null);
     try {
       const token = localStorage.getItem('token');
-      const resp = await fetch(`http://localhost:8000/admin/preview-daily-report`, {
+      const resp = await fetch(`${API_CONFIG.BASE_URL}/admin/preview-daily-report`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!resp.ok) throw new Error('Failed to load preview');

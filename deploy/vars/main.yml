@@ -16,16 +16,16 @@ postgres_db: office_db
 
 # ── App ──────────────────────────────────────────────────────────────
 # Generate with:  python3 -c "import secrets; print(secrets.token_hex(32))"
-secret_key: "CHANGE_ME_TO_A_LONG_RANDOM_HEX_STRING"
+secret_key: "9f3a7c8e2b6d4a1c5e0f9b8d7a6c2e4f1b3d5a9c0e8f7d6b4a2c1e5f9"
 
 admin_name: Admin
-admin_email: admin@example.com
-admin_password: admin123
+admin_email: info@cats-global.com
+admin_password: Pa55@word
 
 # ── SMTP (leave blank to disable email features) ────────────────────
-smtp_host: ""
+smtp_host: "smtp.gmail.com"
 smtp_port: "587"
-smtp_user: ""
-smtp_pass: ""
+smtp_user: "info@cats-global.com"
+smtp_pass: "cvmh ymjn jqzw pyqf"
 smtp_use_tls: "true"
-report_recipients: ""
+report_recipients: "info@cats-global.com,d.chavda@cats-global.com"

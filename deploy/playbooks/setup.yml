@@ -11,13 +11,12 @@
   tasks:
     # ── Docker ──────────────────────────────────────────────────
     - name: Check if Docker is installed
-      command: docker --version
+      stat:
+        path: /usr/bin/docker
       register: docker_check
-      ignore_errors: true
-      changed_when: false
 
     - name: Install Docker via convenience script
-      when: docker_check.rc != 0
+      when: not docker_check.stat.exists
       shell: curl -fsSL https://get.docker.com | sh
       args:
         creates: /usr/bin/docker
@@ -42,13 +41,12 @@
 
     # ── Node.js 20 ──────────────────────────────────────────────
     - name: Check if Node.js is installed
-      command: node --version
+      stat:
+        path: /usr/bin/node
       register: node_check
-      ignore_errors: true
-      changed_when: false
 
     - name: Add NodeSource 20.x repo
-      when: node_check.rc != 0
+      when: not node_check.stat.exists
       shell: curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 
     - name: Install Node.js
@@ -106,7 +104,25 @@
         name: make
         state: present
 
+    # ── Docker Compose auto-start on boot ────────────────────────
+    - name: Create systemd service for SmartAttend
+      template:
+        src: ../templates/smartattend.service.j2
+        dest: /etc/systemd/system/smartattend.service
+        mode: "0644"
+      notify: Reload systemd
+
+    - name: Enable SmartAttend service on boot
+      systemd:
+        name: smartattend
+        enabled: true
+        daemon_reload: true
+
   handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
     - name: Reload Nginx
       systemd:
         name: nginx

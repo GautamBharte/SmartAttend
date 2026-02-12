@@ -1,11 +1,10 @@
 # Makefile in SmartAttend/
 
 ENV_FILE=backend/.env
-COMPOSE_DEV=docker-compose --env-file $(ENV_FILE) -f docker/docker-compose.yml
-COMPOSE_PROD=docker-compose --env-file $(ENV_FILE) -f docker/docker-compose.prod.yml
+COMPOSE_DEV=docker compose --env-file $(ENV_FILE) -f docker/docker-compose.yml
+COMPOSE_PROD=docker compose --env-file $(ENV_FILE) -f docker/docker-compose.prod.yml
 
-# Export environment variables from .env
-export $(shell grep -v '^#' $(ENV_FILE) | xargs)
+# Note: docker compose uses --env-file, so we don't need to export vars here
 
 .PHONY: help init clean build migrate seed up down \
         prod-init prod-build prod-seed prod-up prod-down prod-logs \
@@ -107,7 +106,27 @@ prod-logs:
 # ── Ansible Deployment ───────────────────────────────────────────────
 
 deploy-setup:
+	@command -v ansible-playbook >/dev/null 2>&1 || { \
+		echo "❌ Ansible is not installed."; \
+		echo ""; \
+		echo "Install it with:"; \
+		echo "  brew install ansible"; \
+		echo ""; \
+		echo "Or with pip:"; \
+		echo "  pip3 install ansible"; \
+		exit 1; \
+	}
 	cd deploy && ansible-playbook playbooks/setup.yml --ask-become-pass
 
 deploy:
+	@command -v ansible-playbook >/dev/null 2>&1 || { \
+		echo "❌ Ansible is not installed."; \
+		echo ""; \
+		echo "Install it with:"; \
+		echo "  brew install ansible"; \
+		echo ""; \
+		echo "Or with pip:"; \
+		echo "  pip3 install ansible"; \
+		exit 1; \
+	}
 	cd deploy && ansible-playbook playbooks/deploy.yml

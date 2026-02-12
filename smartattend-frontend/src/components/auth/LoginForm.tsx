@@ -107,7 +107,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
     setIsLoading(true);
 
     try {
-      const response = await onLogin(loginData);
+      await onLogin(loginData);
       toast({ title: 'Login successful!', description: 'Welcome back!' });
     } catch (error: any) {
       toast({
@@ -370,7 +370,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                 type="email"
                 placeholder="Enter your email"
                 value={loginData.email}
-                onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+                onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
                 required
                 className="dark:bg-gray-700 dark:text-white"
               />
@@ -383,7 +383,7 @@ export const LoginForm = ({ onLogin }: LoginFormProps) => {
                   type={showLoginPassword ? 'text' : 'password'}
                   placeholder="Enter your password"
                   value={loginData.password}
-                  onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+                  onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                   required
                   className="dark:bg-gray-700 dark:text-white pr-10"
                 />

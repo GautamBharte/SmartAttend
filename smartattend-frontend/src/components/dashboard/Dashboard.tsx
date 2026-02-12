@@ -7,7 +7,7 @@ import { AttendancePanel } from './AttendancePanel';
 import { LeaveRequests } from './LeaveRequests';
 import { TourRequests } from './TourRequests';
 import { AdminPanel } from './AdminPanel';
-import { ENABLED_TABS, isFeatureEnabled } from '@/config/featureFlags';
+import { ENABLED_TABS } from '@/config/featureFlags';
 
 /** Read the sidebar tab from the URL hash, e.g. #admin → "admin" */
 function tabFromHash(): string {
