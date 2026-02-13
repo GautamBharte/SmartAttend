@@ -427,7 +427,7 @@ export const AdminPanel = () => {
             filters={employeeFilters}
             onFiltersChange={setEmployeeFilters}
           />
-
+          
           <Card>
             <CardHeader>
               <CardTitle>Employee Management</CardTitle>
@@ -505,7 +505,7 @@ export const AdminPanel = () => {
             showUserFilter={true}
             employees={employees}
           />
-
+          
           <Card>
             <CardHeader>
               <CardTitle>Leave Requests</CardTitle>
@@ -587,7 +587,7 @@ export const AdminPanel = () => {
             showUserFilter={true}
             employees={employees}
           />
-
+          
           <Card>
             <CardHeader>
               <CardTitle>Tour Requests</CardTitle>

@@ -214,19 +214,19 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="w-5 h-5" /> Profile Name
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
           <form onSubmit={handleSaveName} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input
-                id="name"
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
+              required
+            />
+          </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={savingName || name.trim() === user?.name} className="flex-1">
                 {savingName && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -265,17 +265,17 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
             </div>
           ) : emailStep === 'edit' || emailStep === 'sending' ? (
             <div className="space-y-4">
-              <div className="space-y-2">
+          <div className="space-y-2">
                 <Label htmlFor="new-email">New Email Address</Label>
-                <Input
+            <Input
                   id="new-email"
-                  type="email"
+              type="email"
                   placeholder="you@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  required
-                />
-              </div>
+              required
+            />
+          </div>
               <div className="flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3">
                 <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                 <p className="text-xs text-blue-700 dark:text-blue-300">
@@ -442,15 +442,15 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
                     <ShieldCheck className="mr-2 h-4 w-4" />
                   )}
                   Change Password
-                </Button>
+            </Button>
                 <Button type="button" variant="outline" onClick={resetPwFlow} className="flex-1">
-                  Cancel
-                </Button>
-              </div>
-            </form>
+              Cancel
+            </Button>
+          </div>
+        </form>
           )}
-        </CardContent>
-      </Card>
+      </CardContent>
+    </Card>
     </div>
   );
 };

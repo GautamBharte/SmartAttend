@@ -68,23 +68,23 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <Navbar
-        user={user}
-        onLogout={onLogout}
+      <Navbar 
+        user={user} 
+        onLogout={onLogout} 
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
         onProfileUpdate={onProfileUpdate}
         showMenuButton={true}
       />
-
+      
       <div className="flex">
-        <Sidebar
-          user={user}
-          activeTab={activeTab}
+        <Sidebar 
+          user={user} 
+          activeTab={activeTab} 
           setActiveTab={changeTab}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
-
+        
         <main className="flex-1 min-h-[calc(100vh-4rem)]">
           <div className="container mx-auto p-6">
             {/*
