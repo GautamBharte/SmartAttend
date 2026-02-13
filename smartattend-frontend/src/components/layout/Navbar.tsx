@@ -39,7 +39,7 @@ export const Navbar = ({ user, onLogout, onMenuToggle, showMenuButton = false, o
                 <Menu className="h-5 w-5" />
               </Button>
             )}
-            
+
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <Building2 className="w-5 h-5 text-white" />
@@ -117,14 +117,14 @@ export const Navbar = ({ user, onLogout, onMenuToggle, showMenuButton = false, o
 
       {/* Edit Profile Dialog */}
       <Dialog open={isEditProfileOpen} onOpenChange={setIsEditProfileOpen}>
-        <DialogContent className="sm:max-w-md">
-          {onProfileUpdate && (
-            <EditProfileForm
-              user={user}
-              onProfileUpdate={onProfileUpdate}
-              onClose={() => setIsEditProfileOpen(false)}
-            />
-          )}
+        <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+          <EditProfileForm
+            user={user}
+            onProfileUpdate={(updatedUser) => {
+              onProfileUpdate?.(updatedUser);
+            }}
+            onClose={() => setIsEditProfileOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </>

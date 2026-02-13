@@ -1,11 +1,10 @@
 
 import { authService } from './authService';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_CONFIG } from '@/config/api';
 
 class AttendanceService {
   async checkIn() {
-    const response = await fetch(`${API_BASE_URL}/attendance/check-in`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/check-in`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
@@ -19,7 +18,7 @@ class AttendanceService {
   }
 
   async checkOut() {
-    const response = await fetch(`${API_BASE_URL}/attendance/check-out`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/check-out`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
     });
@@ -33,7 +32,7 @@ class AttendanceService {
   }
 
   async getHistory() {
-    const response = await fetch(`${API_BASE_URL}/attendance/history`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/history`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });

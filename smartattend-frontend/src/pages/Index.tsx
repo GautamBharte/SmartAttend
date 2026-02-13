@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { Dashboard } from '@/components/dashboard/Dashboard';
 import { DualModeService } from '@/services/dualModeService';
+import { NetworkStatus, BACKEND_UNREACHABLE_EVENT } from '@/components/layout/NetworkStatus';
 
 const Index = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -15,40 +16,32 @@ const Index = () => {
 
   const checkAuthState = async () => {
     const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
+
     console.log('Found token:', !!token);
-    console.log('Found user data:', !!userData);
-    
-    if (token && userData) {
-      try {
-        const parsedUser = JSON.parse(userData);
-        console.log('Parsed user:', parsedUser);
-        
-        // Verify token is still valid by fetching fresh profile
-        try {
-          const freshProfile = await DualModeService.getProfile();
-          console.log('Fresh profile fetched:', freshProfile);
-          
-          // Update stored user data with fresh profile
-          localStorage.setItem('user', JSON.stringify(freshProfile));
-          setUser(freshProfile);
-          setIsAuthenticated(true);
-        } catch (profileError) {
-          console.error('Failed to fetch profile, token might be expired:', profileError);
-          // Clear invalid data
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-        // Clear invalid data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+
+    if (!token) {
+      setLoading(false);
+      return;
     }
+
+    try {
+      // Verify token is still valid by fetching fresh profile from backend
+      const freshProfile = await DualModeService.getProfile();
+      console.log('Fresh profile fetched:', freshProfile);
+
+      // Update stored user data with fresh profile
+      localStorage.setItem('user', JSON.stringify(freshProfile));
+      setUser(freshProfile);
+      setIsAuthenticated(true);
+    } catch (profileError) {
+      console.error('Failed to fetch profile, token might be expired:', profileError);
+      // Clear invalid data
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+
     setLoading(false);
   };
 
@@ -57,18 +50,28 @@ const Index = () => {
       console.log('Login attempt with credentials:', credentials);
       const response = await DualModeService.login(credentials);
       console.log('Login response received:', response);
-      
-      // Store authentication data
+
+      // Store token first
       localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-      
-      console.log('Setting user state:', response.user);
-      setUser(response.user);
+
+      // If the backend returned a user object, use it; otherwise fetch the profile
+      let userData = response.user;
+      if (!userData) {
+        console.log('No user data in login response, fetching profile...');
+        userData = await DualModeService.getProfile();
+      }
+
+      console.log('Setting user state:', userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
       setIsAuthenticated(true);
-      
-      return response;
+
+      return { ...response, user: userData };
     } catch (error) {
       console.error('Login failed:', error);
+      // Clean up token if profile fetch failed after successful login
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       throw error;
     }
   };
@@ -87,13 +90,12 @@ const Index = () => {
     setUser(updatedUser);
   };
 
-  // Global error handler for API calls
+  // Global error handler for API calls — only 401 should invalidate the session
   const handleApiError = (error: any) => {
     console.error('API Error:', error);
-    
-    // Check if it's a 401 (Unauthorized) or 404 error indicating expired token
-    if (error.status === 401 || error.status === 404 || error.message?.includes('401') || error.message?.includes('404')) {
-      console.log('API key expired or unauthorized, clearing cache and redirecting to login');
+
+    if (error.status === 401 || error.message?.includes('401')) {
+      console.log('Token expired or unauthorized, clearing session and redirecting to login');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       setUser(null);
@@ -101,17 +103,21 @@ const Index = () => {
     }
   };
 
-  // Add global error handling
+  // Add global error handling — intercept 401 + network errors
   useEffect(() => {
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
       try {
         const response = await originalFetch(...args);
-        if (response.status === 401 || response.status === 404) {
+        if (response.status === 401) {
           handleApiError({ status: response.status });
         }
         return response;
       } catch (error) {
+        // TypeError means the request never reached the server (network down / CORS preflight failed)
+        if (error instanceof TypeError) {
+          window.dispatchEvent(new Event(BACKEND_UNREACHABLE_EVENT));
+        }
         handleApiError(error);
         throw error;
       }
@@ -132,11 +138,15 @@ const Index = () => {
 
   console.log('Rendering Index - isAuthenticated:', isAuthenticated, 'user:', user);
 
-  if (!isAuthenticated) {
-    return <LoginForm onLogin={handleLogin} />;
-  }
-
-  return <Dashboard user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />;
+  return (
+    <NetworkStatus>
+      {!isAuthenticated ? (
+        <LoginForm onLogin={handleLogin} />
+      ) : (
+        <Dashboard user={user} onLogout={handleLogout} onProfileUpdate={handleProfileUpdate} />
+      )}
+    </NetworkStatus>
+  );
 };
 
 export default Index;

@@ -8,3 +8,5 @@ Werkzeug
 alembic
 pytest
 pytest-flask
+APScheduler
+gunicorn

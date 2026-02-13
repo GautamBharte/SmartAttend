@@ -95,14 +95,64 @@ export class DualModeService {
       return { message: 'Profile updated successfully' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(profileData),
       });
       
-      if (!response.ok) throw new Error('Failed to update profile');
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update profile');
+      }
       return response.json();
     }
+  }
+
+  /** Request a 6-digit OTP for password change — sent to user's email. */
+  static async requestOtp(): Promise<{ message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/request-otp`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
+    return data;
+  }
+
+  /** Verify OTP and set a new password in one step. */
+  static async verifyOtpChangePassword(otp: string, newPassword: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/verify-otp-change-password`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ otp, new_password: newPassword }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to change password');
+    return data;
+  }
+
+  /** Request a 6-digit OTP sent to the NEW email address for email change verification. */
+  static async requestEmailOtp(newEmail: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/request-email-otp`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ new_email: newEmail }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to send OTP');
+    return data;
+  }
+
+  /** Verify OTP and change the user's email. */
+  static async verifyOtpChangeEmail(otp: string, newEmail: string): Promise<{ message: string; email: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/auth/verify-otp-change-email`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ otp, new_email: newEmail }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to change email');
+    return data;
   }
 
   static async register(userData: { name: string; email: string; password: string; role?: string }) {
@@ -112,12 +162,6 @@ export class DualModeService {
       if (mockUsers[userData.email as keyof typeof mockUsers]) {
         throw new Error('User already exists');
       }
-      
-      const newUser = {
-        id: Object.keys(mockUsers).length + 1,
-        ...userData,
-        role: userData.role || 'employee'
-      };
       
       // In real app, this would persist to storage
       return { message: 'User registered successfully' };
@@ -137,19 +181,18 @@ export class DualModeService {
     }
   }
 
-  static async forgotPassword(email: string) {
+  /** Request an OTP to be sent to the given email for password reset (no auth). */
+  static async forgotPassword(email: string): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
       
       const user = Object.values(mockUsers).find(u => u.email === email);
       if (!user) {
-        throw new Error('User not found');
+        // Mimic backend: don't reveal whether the email exists
+        return { message: 'If an account with that email exists, an OTP has been sent.' };
       }
       
-      return { 
-        message: 'Reset token generated', 
-        reset_token: 'dummy_reset_token_123456' 
-      };
+      return { message: 'If an account with that email exists, an OTP has been sent.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/forgot-password`, {
         method: 'POST',
@@ -157,25 +200,25 @@ export class DualModeService {
         body: JSON.stringify({ email }),
       });
       
+      const data = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to generate reset token');
+        throw new Error(data.error || 'Failed to send reset OTP');
       }
-      
-      return response.json();
+      return data;
     }
   }
 
-  static async resetPassword(data: { email: string; new_password: string }) {
+  /** Verify OTP and set a new password (no auth). */
+  static async resetPassword(data: { email: string; otp: string; new_password: string }): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
       
       const user = Object.values(mockUsers).find(u => u.email === data.email);
       if (!user) {
-        throw new Error('User not found');
+        throw new Error('Invalid email or OTP');
       }
       
-      return { message: 'Password reset successfully' };
+      return { message: 'Password reset successfully. You can now log in with your new password.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/reset-password`, {
         method: 'POST',
@@ -183,12 +226,11 @@ export class DualModeService {
         body: JSON.stringify(data),
       });
       
+      const result = await response.json();
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to reset password');
+        throw new Error(result.error || 'Failed to reset password');
       }
-      
-      return response.json();
+      return result;
     }
   }
 
@@ -283,6 +325,20 @@ export class DualModeService {
     }
   }
 
+  static async getWeeklyHours() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { weekly_hours: 0, week_start: '', week_end: '' };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/weekly-hours`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch weekly hours');
+      return response.json();
+    }
+  }
+
   static async applyLeave(leaveData: { start_date: string; end_date: string; reason: string }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
@@ -371,6 +427,50 @@ export class DualModeService {
       });
       
       if (!response.ok) throw new Error('Failed to update tour status');
+      return response.json();
+    }
+  }
+
+  static async getLeaveBalance(year?: number) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { year: year || new Date().getFullYear(), total: 21, used: 3, pending: 2, available: 16 };
+    } else {
+      const params = year ? `?year=${year}` : '';
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/balance${params}`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch leave balance');
+      return response.json();
+    }
+  }
+
+  static async getHolidays(year?: number) {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return [];
+    } else {
+      const params = year ? `?year=${year}` : '';
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/holidays${params}`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch holidays');
+      return response.json();
+    }
+  }
+
+  static async getWeekendConfig() {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { weekend_days: [6] }; // Default: Sunday only
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/request/weekend-config`, {
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch weekend config');
       return response.json();
     }
   }

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Navbar } from '@/components/layout/Navbar';
 import { Sidebar } from './Sidebar';
 import { DashboardOverview } from './DashboardOverview';
@@ -7,6 +7,13 @@ import { AttendancePanel } from './AttendancePanel';
 import { LeaveRequests } from './LeaveRequests';
 import { TourRequests } from './TourRequests';
 import { AdminPanel } from './AdminPanel';
+import { ENABLED_TABS } from '@/config/featureFlags';
+
+/** Read the sidebar tab from the URL hash, e.g. #admin → "admin" */
+function tabFromHash(): string {
+  const raw = window.location.hash.replace('#', '').split('/')[0];
+  return ENABLED_TABS.includes(raw) ? raw : 'dashboard';
+}
 
 interface DashboardProps {
   user: any;
@@ -15,11 +22,33 @@ interface DashboardProps {
 }
 
 export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) => {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(tabFromHash);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const renderContent = () => {
-    switch (activeTab) {
+  // Track which tabs have been visited so we mount them lazily but keep them alive
+  const visitedTabs = useRef<Set<string>>(new Set([tabFromHash()]));
+
+  // Keep the URL hash in sync with the active tab
+  const changeTab = useCallback((tab: string) => {
+    visitedTabs.current.add(tab);
+    setActiveTab(tab);
+    window.location.hash = tab;
+  }, []);
+
+  // Listen for browser back/forward navigation
+  useEffect(() => {
+    const onHashChange = () => {
+      const tab = tabFromHash();
+      visitedTabs.current.add(tab);
+      setActiveTab(tab);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  /** Resolve component for a tab id */
+  const tabComponent = (tab: string) => {
+    switch (tab) {
       case 'dashboard':
         return <DashboardOverview user={user} />;
       case 'attendance':
@@ -29,9 +58,11 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
       case 'tour':
         return <TourRequests />;
       case 'admin':
-        return user?.role === 'admin' ? <AdminPanel /> : <div className="p-6"><div className="text-center text-gray-500">Access Denied</div></div>;
+        return user?.role === 'admin'
+          ? <AdminPanel />
+          : <div className="p-6"><div className="text-center text-gray-500">Access Denied</div></div>;
       default:
-        return <DashboardOverview user={user} />;
+        return null;
     }
   };
 
@@ -41,7 +72,7 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
         user={user} 
         onLogout={onLogout} 
         onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
-        // onProfileUpdate={onProfileUpdate}
+        onProfileUpdate={onProfileUpdate}
         showMenuButton={true}
       />
       
@@ -49,14 +80,27 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
         <Sidebar 
           user={user} 
           activeTab={activeTab} 
-          setActiveTab={setActiveTab}
+          setActiveTab={changeTab}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
         />
         
         <main className="flex-1 min-h-[calc(100vh-4rem)]">
           <div className="container mx-auto p-6">
-            {renderContent()}
+            {/*
+              Render all visited & enabled tabs, but only show the active one.
+              Inactive tabs stay mounted (preserving state) but are hidden via CSS.
+            */}
+            {ENABLED_TABS.map((tab) =>
+              visitedTabs.current.has(tab) ? (
+                <div
+                  key={tab}
+                  style={{ display: activeTab === tab ? 'block' : 'none' }}
+                >
+                  {tabComponent(tab)}
+                </div>
+              ) : null
+            )}
           </div>
         </main>
       </div>

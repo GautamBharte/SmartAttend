@@ -8,6 +8,7 @@ import {
   Users, 
   X
 } from 'lucide-react';
+import { isFeatureEnabled } from '@/config/featureFlags';
 
 interface SidebarProps {
   user: any;
@@ -18,13 +19,16 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ user, activeTab, setActiveTab, isOpen, onClose }: SidebarProps) => {
-  const menuItems = [
+  const allItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'attendance', label: 'Attendance', icon: Clock },
     { id: 'leave', label: 'Leave Requests', icon: Calendar },
     { id: 'tour', label: 'Tour Requests', icon: FileText },
     ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Users }] : []),
   ];
+
+  // Only show tabs that are enabled via feature flags
+  const menuItems = allItems.filter(item => isFeatureEnabled(item.id));
 
   const handleItemClick = (id: string) => {
     setActiveTab(id);

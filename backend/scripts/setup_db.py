@@ -1,6 +1,7 @@
 from app.app import create_app
 from app.extensions import db
 from app.models.user import User
+from app.holidays import seed_holidays
 import os
 from werkzeug.security import generate_password_hash
 from datetime import datetime
@@ -34,6 +35,13 @@ def setup_base_data():
             print("✅ Admin user created.")
         else:
             print("ℹ️ Admin already exists.")
+
+        # Seed Indian public holidays
+        count = seed_holidays()
+        if count:
+            print(f"✅ Seeded {count} holiday(s).")
+        else:
+            print("ℹ️ Holidays already seeded.")
 
         print("✅ Database setup complete.")
 

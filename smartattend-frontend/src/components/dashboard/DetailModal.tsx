@@ -3,8 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { CheckCircle, XCircle, Calendar, MapPin, User, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Calendar, MapPin, User, FileText, Clock } from 'lucide-react';
 import type { AdminLeave, AdminTour, Employee } from '../../services/adminService';
+import { formatOfficeTime } from '@/config/api';
 
 interface DetailModalProps {
   isOpen: boolean;
@@ -55,9 +56,9 @@ export const DetailModal = ({
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium">Employee ID:</span>
+            <span className="text-sm font-medium">Employee:</span>
           </div>
-          <p className="text-sm text-gray-600">{leave.user_id}</p>
+          <p className="text-sm text-gray-600">{leave.employee_name || 'Unknown'}</p>
         </div>
         
         <div className="space-y-2">
@@ -123,9 +124,9 @@ export const DetailModal = ({
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
-            <span className="text-sm font-medium">Employee ID:</span>
+            <span className="text-sm font-medium">Employee:</span>
           </div>
-          <p className="text-sm text-gray-600">{tour.user_id}</p>
+          <p className="text-sm text-gray-600">{tour.employee_name || 'Unknown'}</p>
         </div>
         
         <div className="space-y-2">
@@ -186,33 +187,85 @@ export const DetailModal = ({
     </div>
   );
 
-  const renderEmployeeDetails = (employee: Employee) => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Employee Details</h3>
-      
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Name:</span>
-          <p className="text-sm text-gray-600">{employee.name}</p>
+  const getAttendanceStatusLabel = (status: string) => {
+    switch (status) {
+      case 'checked_in': return { label: 'Present', color: 'bg-green-100 text-green-800' };
+      case 'checked_out': return { label: 'Completed', color: 'bg-blue-100 text-blue-800' };
+      default: return { label: 'Absent', color: 'bg-red-100 text-red-800' };
+    }
+  };
+
+  const renderEmployeeDetails = (employee: Employee) => {
+    const statusInfo = getAttendanceStatusLabel(employee.today_status);
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Employee Details</h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <User className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium">Name:</span>
+            </div>
+            <p className="text-sm text-gray-600">{employee.name}</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              <span className="text-sm font-medium">Email:</span>
+            </div>
+            <p className="text-sm text-gray-600">{employee.email}</p>
+          </div>
         </div>
-        
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Email:</span>
-          <p className="text-sm text-gray-600">{employee.email}</p>
-        </div>
-        
-        <div className="space-y-2">
-          <span className="text-sm font-medium">Employee ID:</span>
-          <p className="text-sm text-gray-600">{employee.id}</p>
-        </div>
-        
+
         <div className="space-y-2">
           <span className="text-sm font-medium">Joined:</span>
           <p className="text-sm text-gray-600">{formatDate(employee.created_at)}</p>
         </div>
+
+        <Separator />
+
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-700">Today's Attendance</h4>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <span className="text-sm font-medium">Status:</span>
+              <div>
+                <Badge className={statusInfo.color}>{statusInfo.label}</Badge>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-1">
+                <Clock className="h-3.5 w-3.5 text-gray-500" />
+                <span className="text-sm font-medium">Entry:</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {employee.check_in_time ? formatOfficeTime(employee.check_in_time) : '—'}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-1">
+                <Clock className="h-3.5 w-3.5 text-gray-500" />
+                <span className="text-sm font-medium">Exit:</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {employee.check_out_time
+                  ? formatOfficeTime(employee.check_out_time)
+                  : employee.check_in_time
+                  ? 'Still in office'
+                  : '—'}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

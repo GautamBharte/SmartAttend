@@ -1,10 +1,9 @@
 import { authService } from './authService';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_CONFIG } from '@/config/api';
 
 class RequestService {
-  async applyLeave(leaveData: { start_date: string; end_date: string; reason: string }) {
-    const response = await fetch(`${API_BASE_URL}/request/leave/apply`, {
+  async applyLeave(leaveData: { start_date: string; end_date: string; reason: string; leave_type?: string }) {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/apply`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify(leaveData),
@@ -19,7 +18,7 @@ class RequestService {
   }
 
   async applyTour(tourData: { start_date: string; end_date: string; location: string; reason: string }) {
-    const response = await fetch(`${API_BASE_URL}/request/tour/apply`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/tour/apply`, {
       method: 'POST',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify(tourData),
@@ -34,7 +33,7 @@ class RequestService {
   }
 
   async getLeaveHistory() {
-    const response = await fetch(`${API_BASE_URL}/request/leave`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -48,7 +47,7 @@ class RequestService {
   }
 
   async getTourHistory() {
-    const response = await fetch(`${API_BASE_URL}/request/tour`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/tour`, {
       method: 'GET',
       headers: authService.getAuthHeaders(),
     });
@@ -62,7 +61,7 @@ class RequestService {
   }
 
   async updateLeaveStatus(leaveId: number, status: string) {
-    const response = await fetch(`${API_BASE_URL}/request/leave/${leaveId}/status`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/${leaveId}/status`, {
       method: 'PATCH',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ status }),
@@ -77,7 +76,7 @@ class RequestService {
   }
 
   async updateTourStatus(tourId: number, status: string) {
-    const response = await fetch(`${API_BASE_URL}/request/tour/${tourId}/status`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/tour/${tourId}/status`, {
       method: 'PATCH',
       headers: authService.getAuthHeaders(),
       body: JSON.stringify({ status }),
@@ -86,6 +85,50 @@ class RequestService {
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Failed to update tour status');
+    }
+
+    return response.json();
+  }
+
+  async getLeaveBalance(year?: number) {
+    const params = year ? `?year=${year}` : '';
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave/balance${params}`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch leave balance');
+    }
+
+    return response.json();
+  }
+
+  async getHolidays(year?: number) {
+    const params = year ? `?year=${year}` : '';
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/holidays${params}`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch holidays');
+    }
+
+    return response.json();
+  }
+
+  async getWeekendConfig() {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/request/weekend-config`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch weekend config');
     }
 
     return response.json();

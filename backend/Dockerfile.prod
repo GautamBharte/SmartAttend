@@ -1,0 +1,29 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+ENV PYTHONPATH=/app
+ENV FLASK_ENV=production
+
+# Install build deps for psycopg2 on armv7 (RPi 3B)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# ── Tuned for Raspberry Pi 3B (1 GB RAM, quad-core Cortex-A53) ──
+# • 1 worker  — keeps memory under ~150 MB (safe for 1 GB total)
+# • 2 threads — lightweight concurrency without extra process overhead
+# • --preload — loads app once before fork, saves ~30 MB
+# • --timeout 180 — RPi 3B is slower; avoid worker kills on cold starts
+CMD ["gunicorn", \
+    "--bind", "0.0.0.0:5000", \
+    "--workers", "1", \
+    "--threads", "2", \
+    "--timeout", "180", \
+    "--preload", \
+    "app.app:create_app()"]

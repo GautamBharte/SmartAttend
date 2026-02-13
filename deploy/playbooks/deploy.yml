@@ -1,0 +1,152 @@
+---
+# Deploy / update SmartAttend on the Raspberry Pi.
+# Run:  make deploy  (or cd deploy && ansible-playbook playbooks/deploy.yml)
+
+- name: Deploy SmartAttend (production)
+  hosts: smartattend
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    # ── 1. Sync source code ─────────────────────────────────────
+    - name: Create temporary archive of project
+      archive:
+        path: "{{ playbook_dir }}/../../"
+        dest: /tmp/smartattend-deploy.tar.gz
+        exclude_path:
+          - "{{ playbook_dir }}/../../node_modules"
+          - "{{ playbook_dir }}/../../.git"
+          - "{{ playbook_dir }}/../../env"
+          - "{{ playbook_dir }}/../../**/__pycache__"
+          - "{{ playbook_dir }}/../../dist"
+          - "{{ playbook_dir }}/../../backend/.env"
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure app directory exists
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy archive to Pi
+      copy:
+        src: /tmp/smartattend-deploy.tar.gz
+        dest: /tmp/smartattend-deploy.tar.gz
+        mode: "0644"
+
+    - name: Extract archive on Pi
+      shell: |
+        mkdir -p {{ app_dir }}
+        # Extract to temp directory first to inspect structure
+        TEMP_DIR=$(mktemp -d)
+        cd "$TEMP_DIR"
+        tar -xzf /tmp/smartattend-deploy.tar.gz
+        # If archive contains SmartAttend directory, move its contents
+        if [ -d "$TEMP_DIR/SmartAttend" ]; then
+          cp -r "$TEMP_DIR/SmartAttend"/* {{ app_dir }}/
+        else
+          # Otherwise, move all extracted contents
+          cp -r "$TEMP_DIR"/* {{ app_dir }}/
+        fi
+        rm -rf "$TEMP_DIR"
+
+    - name: Clean up temporary archive on Pi
+      file:
+        path: /tmp/smartattend-deploy.tar.gz
+        state: absent
+
+    - name: Clean up temporary archive on localhost
+      file:
+        path: /tmp/smartattend-deploy.tar.gz
+        state: absent
+      delegate_to: localhost
+      become: false
+
+    # ── 2. Template the .env ────────────────────────────────────
+    - name: Write backend .env from template
+      template:
+        src: ../templates/env.j2
+        dest: "{{ app_dir }}/backend/.env"
+        mode: "0600"
+
+    # ── 3. Set frontend API URL for reverse proxy ───────────────
+    - name: Set API_CONFIG.BASE_URL for production
+      shell: |
+        if [ -z "{{ api_base_url }}" ]; then
+          sed -i "s|^\\s*BASE_URL:.*|  BASE_URL: '',|" "{{ frontend_dir }}/src/config/api.ts"
+        else
+          sed -i "s|^\\s*BASE_URL:.*|  BASE_URL: '{{ api_base_url }}',|" "{{ frontend_dir }}/src/config/api.ts"
+        fi
+
+    # ── 4. Build frontend ───────────────────────────────────────
+    - name: Install frontend dependencies
+      command: npm ci
+      args:
+        chdir: "{{ frontend_dir }}"
+
+    - name: Build frontend for production
+      command: npm run build
+      args:
+        chdir: "{{ frontend_dir }}"
+
+    - name: Deploy frontend dist to web root
+      become: true
+      shell: |
+        rm -rf {{ web_root }}/*
+        cp -r {{ frontend_dir }}/dist/* {{ web_root }}/
+        chown -R www-data:www-data {{ web_root }}
+
+    # ── 5. Build & start backend (production compose) ───────────
+    - name: Build production Docker images
+      command: >
+        docker compose
+        --env-file {{ app_dir }}/backend/.env
+        -f {{ app_dir }}/docker/docker-compose.prod.yml
+        build
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Start production containers
+      command: >
+        docker compose
+        --env-file {{ app_dir }}/backend/.env
+        -f {{ app_dir }}/docker/docker-compose.prod.yml
+        up -d
+      args:
+        chdir: "{{ app_dir }}"
+
+    - name: Wait for PostgreSQL to be ready
+      command: docker exec postgres_container pg_isready -U {{ postgres_user }}
+      register: pg_ready
+      retries: 15
+      delay: 2
+      until: pg_ready.rc == 0
+
+    - name: Wait for backend container to be ready
+      pause:
+        seconds: 5
+
+    - name: Run database seed
+      command: docker exec flask_backend python scripts/setup_db.py
+
+    # ── 6. Reload Nginx ─────────────────────────────────────────
+    - name: Reload Nginx to serve new frontend
+      become: true
+      systemd:
+        name: nginx
+        state: reloaded
+
+    # ── 7. Health check ─────────────────────────────────────────
+    - name: Verify backend is responding
+      uri:
+        url: "http://127.0.0.1:8000/ping"
+        status_code: 200
+      register: health
+      retries: 5
+      delay: 3
+      until: health.status == 200
+
+    - name: Deployment complete
+      debug:
+        msg: "✅ SmartAttend deployed! Access at http://{{ ansible_host }}"

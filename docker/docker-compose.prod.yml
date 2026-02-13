@@ -1,4 +1,7 @@
-version: '3.8'
+version: "3.8"
+
+# Production compose — no volume mounts, no hot-reload, gunicorn.
+# Dev compose (docker-compose.yml) remains untouched.
 
 services:
   db:
@@ -17,17 +20,19 @@ services:
       - postgres_data:/var/lib/postgresql/data
 
   backend:
-    build: ../backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile.prod
     container_name: flask_backend
+    restart: always
     depends_on:
       - db
     env_file:
       - ../backend/.env
     environment:
       FLASK_APP: app/app.py
-      FLASK_ENV: development
+      FLASK_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      # SMTP — set these in backend/.env to enable daily report emails
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER:-}
@@ -36,10 +41,8 @@ services:
       REPORT_RECIPIENTS: ${REPORT_RECIPIENTS:-}
     ports:
       - "8000:5000"
-    volumes:
-      - ../backend:/app  
-    working_dir: /app
-    command: flask run --host=0.0.0.0 --reload 
+    # No volume mount — code is baked into the image
+    # No --reload — gunicorn handles concurrency
 
 volumes:
   postgres_data:
