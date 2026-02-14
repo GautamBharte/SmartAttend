@@ -42,7 +42,9 @@ class AttendanceService {
       throw new Error(error.message || 'Failed to fetch attendance history');
     }
 
-    return response.json();
+    const data = await response.json();
+    // Backend returns {history: [...]}, extract the history array
+    return data.history || [];
   }
 }
 

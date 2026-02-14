@@ -321,7 +321,9 @@ export class DualModeService {
       });
       
       if (!response.ok) throw new Error('Failed to fetch attendance history');
-      return response.json();
+      const data = await response.json();
+      // Backend returns {history: [...]}, extract the history array
+      return data.history || [];
     }
   }
 
