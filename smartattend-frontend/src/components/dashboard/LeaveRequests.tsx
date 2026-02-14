@@ -419,18 +419,21 @@ export const LeaveRequests = () => {
               leaveHistory.map((leave: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                   <div className="flex-1">
+
+                    <p className="font-normal text-sm text-gray-700 dark:text-gray-100 whitespace-pre-line">{leave.reason}</p>
+
+
                     <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{leave.reason}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                        {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
+                        {leave.working_days > 0 && (
+                          <span className="ml-1 text-xs">({leave.working_days} working day{leave.working_days !== 1 ? 's' : ''})</span>
+                        )}
+                      </p>
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                         {leave.leave_type === 'unpaid' ? 'Unpaid' : 'Paid'}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
-                      {leave.working_days > 0 && (
-                        <span className="ml-1 text-xs">({leave.working_days} working day{leave.working_days !== 1 ? 's' : ''})</span>
-                      )}
-                    </p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       Requested on {leave.created_at ? formatDate(leave.created_at) : 'N/A'}
                     </p>

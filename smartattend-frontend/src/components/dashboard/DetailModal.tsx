@@ -79,7 +79,7 @@ export const DetailModal = ({
           <FileText className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium">Reason:</span>
         </div>
-        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md whitespace-pre-line">
           {leave.reason || 'No reason provided'}
         </p>
       </div>
