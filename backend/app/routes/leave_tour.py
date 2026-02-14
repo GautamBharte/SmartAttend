@@ -7,8 +7,10 @@ from app.models.holiday import Holiday
 from app.models.leave_balance import LeaveBalance, ANNUAL_PAID_LEAVES
 from app.holidays import count_working_days
 from app.office_config import office_today
+from app.mail import send_leave_application_email, send_leave_status_email
 from datetime import datetime, date
 from functools import wraps
+import threading
 import jwt
 import os
 
@@ -138,6 +140,21 @@ def apply_leave(user):
     db.session.add(leave)
     db.session.commit()
 
+    # Notify admin recipients about the new leave application (async)
+    threading.Thread(
+        target=send_leave_application_email,
+        kwargs=dict(
+            employee_name=user.name,
+            employee_email=user.email,
+            leave_type=leave_type,
+            start_date=start,
+            end_date=end,
+            working_days=working_days,
+            reason=reason,
+        ),
+        daemon=True,
+    ).start()
+
     return jsonify({
         'message': f'Leave applied ({working_days} working day(s))',
         'working_days': working_days,
@@ -172,6 +189,25 @@ def update_leave_status(admin_user, leave_id):
     leave = Leave.query.get_or_404(leave_id)
     leave.status = status
     db.session.commit()
+
+    # Notify the employee about the status change (async)
+    employee = User.query.get(leave.user_id)
+    if employee:
+        threading.Thread(
+            target=send_leave_status_email,
+            kwargs=dict(
+                employee_name=employee.name,
+                employee_email=employee.email,
+                leave_type=leave.leave_type or 'paid',
+                start_date=leave.start_date,
+                end_date=leave.end_date,
+                working_days=leave.working_days or 0,
+                reason=leave.reason or '',
+                new_status=status,
+            ),
+            daemon=True,
+        ).start()
+
     return jsonify({'message': f'Leave marked as {status}'}), 200
 
 

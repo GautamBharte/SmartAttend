@@ -5,6 +5,7 @@ attendance for the current office day.
 Scheduled to run at OFFICE_END_HOUR + 4 hours (≈ 10 PM local).
 """
 
+import logging
 from datetime import datetime
 from app.office_config import (
     office_today, OFFICE_TZ, OFFICE_TIMEZONE_NAME,
@@ -14,6 +15,7 @@ from app.models.user import User
 from app.models.attendance import Attendance
 from app.mail import send_html_email, is_mail_configured
 
+logger = logging.getLogger("smartattend.daily_report")
 
 # ── Schedule time (office end + 4 h) ─────────────────────────────────
 REPORT_HOUR = (OFFICE_END_HOUR + 4) % 24   # e.g. 18 + 4 = 22 (10 PM)
@@ -156,10 +158,10 @@ def send_daily_report():
 
     with app.app_context():
         if not is_mail_configured():
-            print("[daily_report] SMTP not configured — skipping.")
+            logger.warning("SMTP not configured — skipping.")
             return
 
-        print(f"[daily_report] Generating report for {office_today()} ...")
+        logger.info("Generating report for %s …", office_today())
         subject, html = generate_report_html()
         send_html_email(subject, html)
-        print("[daily_report] Done.")
+        logger.info("Daily report sent.")

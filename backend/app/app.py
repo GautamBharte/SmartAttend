@@ -1,10 +1,19 @@
 import os
+import logging
 from flask import Flask
 from flask_cors import CORS
 from app.config import Config
-from app.extensions import db  # ✅ import from extensions
+from app.extensions import db
 from dotenv import load_dotenv
 load_dotenv()
+
+# ── Logging setup ────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("smartattend")
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -60,8 +69,8 @@ def _start_scheduler():
     from apscheduler.triggers.cron import CronTrigger
 
     if not is_mail_configured():
-        print("[scheduler] SMTP not configured — daily report disabled.")
-        print("[scheduler] Set SMTP_HOST, SMTP_USER, SMTP_PASS, REPORT_RECIPIENTS in .env to enable.")
+        logger.warning("SMTP not configured — daily report disabled. "
+                        "Set SMTP_HOST, SMTP_USER, SMTP_PASS, REPORT_RECIPIENTS in .env to enable.")
         return
 
     scheduler = BackgroundScheduler(daemon=True)
@@ -76,7 +85,7 @@ def _start_scheduler():
         replace_existing=True,
     )
     scheduler.start()
-    print(f"[scheduler] Daily report scheduled at {REPORT_HOUR:02d}:{REPORT_MINUTE:02d} {OFFICE_TIMEZONE_NAME}")
+    logger.info("Daily report scheduled at %02d:%02d %s", REPORT_HOUR, REPORT_MINUTE, OFFICE_TIMEZONE_NAME)
 
 
 # Avoid double-scheduling when Flask reloader is active
