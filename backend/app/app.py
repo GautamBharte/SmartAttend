@@ -83,6 +83,7 @@ def _start_scheduler():
         ),
         id="daily_attendance_report",
         replace_existing=True,
+        misfire_grace_time=3600,  # still run if up to 1 hour late
     )
     scheduler.start()
     logger.info("Daily report scheduled at %02d:%02d %s", REPORT_HOUR, REPORT_MINUTE, OFFICE_TIMEZONE_NAME)

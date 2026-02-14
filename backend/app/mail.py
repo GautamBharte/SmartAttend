@@ -4,6 +4,7 @@ SMTP settings are read from environment variables.
 """
 
 import os
+import html as html_lib
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -79,11 +80,20 @@ def send_html_email(subject: str, html_body: str, recipients: list[str] | None =
                 server.login(SMTP_USER, SMTP_PASS)
                 server.sendmail(SMTP_USER, to_addrs, msg.as_string())
         logger.info("Email sent to %s", to_addrs)
+        return True
     except Exception as e:
         logger.error("Failed to send email: %s", e)
+        return False
 
 
 # ── Leave notification emails ────────────────────────────────────────
+
+def _format_reason(reason: str) -> str:
+    """Escape HTML and convert newlines to <br> for rich-text display in emails."""
+    if not reason:
+        return "—"
+    return html_lib.escape(reason).replace("\n", "<br>")
+
 
 def _leave_type_label(leave_type: str) -> str:
     return "Paid Leave" if leave_type == "paid" else "Unpaid Leave"
@@ -168,7 +178,7 @@ def send_leave_application_email(
             </tr>
             <tr>
               <td style="padding:10px 0;color:#6b7280;border-top:1px solid #f3f4f6;">Reason</td>
-              <td style="padding:10px 0;border-top:1px solid #f3f4f6;">{reason or '—'}</td>
+              <td style="padding:10px 0;border-top:1px solid #f3f4f6;">{_format_reason(reason)}</td>
             </tr>
           </table>
         </div>
@@ -267,7 +277,7 @@ def send_leave_status_email(
             </tr>
             <tr>
               <td style="padding:10px 0;color:#6b7280;border-top:1px solid #f3f4f6;">Reason</td>
-              <td style="padding:10px 0;border-top:1px solid #f3f4f6;">{reason or '—'}</td>
+              <td style="padding:10px 0;border-top:1px solid #f3f4f6;">{_format_reason(reason)}</td>
             </tr>
           </table>
         </div>

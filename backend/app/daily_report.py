@@ -6,11 +6,12 @@ Scheduled to run at OFFICE_END_HOUR + 4 hours (≈ 10 PM local).
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone as tz
 from app.office_config import (
     office_today, OFFICE_TZ, OFFICE_TIMEZONE_NAME,
     OFFICE_END_HOUR, OFFICE_END_MINUTE,
 )
+from app.extensions import db
 from app.models.user import User
 from app.models.attendance import Attendance
 from app.mail import send_html_email, is_mail_configured
@@ -26,9 +27,6 @@ def _format_local(dt_utc) -> str:
     """Convert a naive-UTC datetime to office-local HH:MM AM/PM string."""
     if dt_utc is None:
         return "—"
-    aware = dt_utc.replace(tzinfo=datetime.now().astimezone().tzinfo)
-    # Treat the stored value as UTC, then convert to office tz
-    from datetime import timezone as tz
     utc_aware = dt_utc.replace(tzinfo=tz.utc)
     local = utc_aware.astimezone(OFFICE_TZ)
     return local.strftime("%-I:%M %p")
@@ -49,6 +47,16 @@ def generate_report_html() -> tuple[str, str]:
     present_count = 0
     absent_count = 0
 
+    # Auto-checkout time: 1 hour before office end, in UTC (for DB storage)
+    auto_checkout_local = datetime(
+        today.year, today.month, today.day,
+        OFFICE_END_HOUR, OFFICE_END_MINUTE,
+        tzinfo=OFFICE_TZ,
+    ).replace(hour=OFFICE_END_HOUR - 1)
+    auto_checkout_utc = auto_checkout_local.astimezone(tz.utc).replace(tzinfo=None)
+
+    auto_checked_out = False
+
     for emp in employees:
         record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
 
@@ -57,7 +65,15 @@ def generate_report_html() -> tuple[str, str]:
             status = "Present"
             status_color = "#16a34a"  # green
             entry = _format_local(record.check_in_time)
-            exit_time = _format_local(record.check_out_time) if record.check_out_time else "Still in office"
+
+            if record.check_out_time:
+                exit_time = _format_local(record.check_out_time)
+            else:
+                # Auto-fill checkout to 1 h before office end
+                record.check_out_time = auto_checkout_utc
+                auto_checked_out = True
+                exit_time = _format_local(auto_checkout_utc) + " (auto)"
+                logger.info("Auto-checkout for %s at %s", emp.name, exit_time)
         else:
             absent_count += 1
             status = "Absent"
@@ -73,6 +89,9 @@ def generate_report_html() -> tuple[str, str]:
             "entry": entry,
             "exit": exit_time,
         })
+
+    if auto_checked_out:
+        db.session.commit()
 
     total = len(employees)
     subject = f"📋 Daily Attendance Report — {today_str}"
@@ -161,7 +180,16 @@ def send_daily_report():
             logger.warning("SMTP not configured — skipping.")
             return
 
-        logger.info("Generating report for %s …", office_today())
-        subject, html = generate_report_html()
-        send_html_email(subject, html)
-        logger.info("Daily report sent.")
+        try:
+            logger.info("Generating report for %s …", office_today())
+            subject, html = generate_report_html()
+        except Exception as e:
+            logger.error("Failed to generate daily report: %s", e, exc_info=True)
+            db.session.rollback()
+            return
+
+        success = send_html_email(subject, html)
+        if success:
+            logger.info("Daily report sent.")
+        else:
+            logger.error("Daily report generated but email delivery failed.")
