@@ -205,19 +205,19 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const StatusIcon = statusDisplay.icon;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 w-full overflow-x-hidden">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
           Welcome back, {user?.name}!
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
           Here's what's happening with your attendance today.
         </p>
       </div>
 
       {/* Quick Actions — only show when there's an action to take */}
       {!initialLoading && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 w-full">
           {attendanceStatus === 'not_checked_in' && (
             <Button
               onClick={handleQuickCheckIn}
@@ -335,7 +335,7 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
       </Dialog>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Status</CardTitle>
@@ -402,8 +402,10 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
             A visual overview of your attendance, leaves, and business tours
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <ContributionCalendar />
+        <CardContent className="p-0 sm:p-6 overflow-hidden">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 w-full">
+            <ContributionCalendar />
+          </div>
         </CardContent>
       </Card>
     </div>

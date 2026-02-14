@@ -104,8 +104,8 @@ export const Dashboard = ({ user, onLogout, onProfileUpdate }: DashboardProps) =
           onClose={() => setSidebarOpen(false)}
         />
         
-        <main className="flex-1 min-h-[calc(100vh-4rem)]">
-          <div className="container mx-auto p-6">
+        <main className="flex-1 min-h-[calc(100vh-4rem)] overflow-x-hidden">
+          <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl w-full">
             {/*
               Render all visited & enabled tabs, but only show the active one.
               Inactive tabs stay mounted (preserving state) but are hidden via CSS.

@@ -148,13 +148,13 @@ export const LeaveRequests = () => {
     : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leave Requests</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Apply for leave and track your requests</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Leave Requests</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Apply for leave and track your requests</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           New Request
         </Button>
@@ -170,7 +170,7 @@ export const LeaveRequests = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{leaveBalance.total}</p>
                 <p className="text-xs text-blue-600 dark:text-blue-500">Total</p>

@@ -265,9 +265,9 @@ export const ContributionCalendar = () => {
 
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
-    <div className="rounded-xl bg-white dark:bg-gray-900 p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+    <div className="rounded-xl bg-white dark:bg-gray-900 p-3 sm:p-5 border border-gray-200 dark:border-gray-700 shadow-sm" style={{ minWidth: 'max-content' }}>
       {/* ── Top bar: year selector + type legend ───────────────────── */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-3">
         <select
           value={selectedYear}
           onChange={(e) => setSelectedYear(Number(e.target.value))}
@@ -281,7 +281,7 @@ export const ContributionCalendar = () => {
         </select>
 
         {/* Type legend */}
-        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-4 text-xs text-gray-500 dark:text-gray-400 flex-wrap">
           <div className="flex items-center gap-1">
             <div className="w-[10px] h-[10px] rounded-sm bg-green-500 dark:bg-green-500" />
             <span>Work</span>
@@ -311,8 +311,8 @@ export const ContributionCalendar = () => {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto">
-            <div className="inline-flex flex-col">
+          <div className="overflow-x-auto -mx-2 sm:mx-0 px-2 sm:px-0">
+            <div className="inline-flex flex-col" style={{ minWidth: 'max-content' }}>
               {/* ── Month headers ──────────────────────────────────── */}
               <div className="flex text-xs text-gray-500 dark:text-gray-400 mb-[2px]" style={{ paddingLeft: 36 }}>
                 {monthLabels.map((m, i) => {

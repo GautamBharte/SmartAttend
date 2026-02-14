@@ -349,14 +349,14 @@ export const AdminPanel = () => {
   const pendingTours = tours.filter(tour => tour.status === 'pending');
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Panel</h1>
-        <p className="text-gray-600 mt-1">Manage employees, leaves, and tour requests</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Admin Panel</h1>
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Manage employees, leaves, and tour requests</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
@@ -399,20 +399,22 @@ export const AdminPanel = () => {
       </div>
 
       <Tabs defaultValue="employees" className="w-full">
-        <TabsList>
-          <TabsTrigger value="employees">Employees</TabsTrigger>
-          <TabsTrigger value="leaves">Leave Requests</TabsTrigger>
-          <TabsTrigger value="tours">Tour Requests</TabsTrigger>
-          <TabsTrigger value="add-employee">Add Employee</TabsTrigger>
-          <TabsTrigger value="holidays">
-            <CalendarDays className="w-4 h-4 mr-1.5" />
-            Holidays
-          </TabsTrigger>
-          <TabsTrigger value="daily-report">
-            <Mail className="w-4 h-4 mr-1.5" />
-            Daily Report
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-3 sm:mx-0">
+          <TabsList className="inline-flex min-w-full sm:min-w-0 w-full sm:w-auto">
+            <TabsTrigger value="employees" className="text-xs sm:text-sm whitespace-nowrap">Employees</TabsTrigger>
+            <TabsTrigger value="leaves" className="text-xs sm:text-sm whitespace-nowrap">Leave Requests</TabsTrigger>
+            <TabsTrigger value="tours" className="text-xs sm:text-sm whitespace-nowrap">Tour Requests</TabsTrigger>
+            <TabsTrigger value="add-employee" className="text-xs sm:text-sm whitespace-nowrap">Add Employee</TabsTrigger>
+            <TabsTrigger value="holidays" className="text-xs sm:text-sm whitespace-nowrap">
+              <CalendarDays className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Holidays
+            </TabsTrigger>
+            <TabsTrigger value="daily-report" className="text-xs sm:text-sm whitespace-nowrap">
+              <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-1.5" />
+              Daily Report
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="employees" className="space-y-4">
           <AdminSearchFilters
@@ -426,60 +428,65 @@ export const AdminPanel = () => {
               <CardDescription>View and manage all employees</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Entry Time</TableHead>
-                    <TableHead>Exit Time</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell className="font-medium">{employee.name}</TableCell>
-                      <TableCell>
-                        <Badge className={
-                          employee.today_status === 'checked_in'
-                            ? 'bg-green-100 text-green-800'
-                            : employee.today_status === 'checked_out'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-red-100 text-red-800'
-                        }>
-                          {employee.today_status === 'checked_in'
-                            ? 'Present'
-                            : employee.today_status === 'checked_out'
-                            ? 'Completed'
-                            : 'Absent'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {employee.check_in_time
-                          ? formatOfficeTime(employee.check_in_time)
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {employee.check_out_time
-                          ? formatOfficeTime(employee.check_out_time)
-                          : employee.check_in_time
-                          ? 'Still in office'
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDetailModal(employee, 'employee')}
-                        >
-                          View Details
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Name</TableHead>
+                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                        <TableHead className="whitespace-nowrap hidden sm:table-cell">Entry Time</TableHead>
+                        <TableHead className="whitespace-nowrap hidden md:table-cell">Exit Time</TableHead>
+                        <TableHead className="whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {employees.map((employee) => (
+                        <TableRow key={employee.id}>
+                          <TableCell className="font-medium">{employee.name}</TableCell>
+                          <TableCell>
+                            <Badge className={
+                              employee.today_status === 'checked_in'
+                                ? 'bg-green-100 text-green-800'
+                                : employee.today_status === 'checked_out'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-red-100 text-red-800'
+                            }>
+                              {employee.today_status === 'checked_in'
+                                ? 'Present'
+                                : employee.today_status === 'checked_out'
+                                ? 'Completed'
+                                : 'Absent'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            {employee.check_in_time
+                              ? formatOfficeTime(employee.check_in_time)
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            {employee.check_out_time
+                              ? formatOfficeTime(employee.check_out_time)
+                              : employee.check_in_time
+                              ? 'Still in office'
+                              : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openDetailModal(employee, 'employee')}
+                              className="text-xs sm:text-sm"
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               {employees.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -504,64 +511,73 @@ export const AdminPanel = () => {
               <CardDescription>Review and manage leave requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Reason</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {leaves.map((leave) => (
-                    <TableRow key={leave.id}>
-                      <TableCell className="font-medium">{leave.employee_name}</TableCell>
-                      <TableCell>
-                        {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">{leave.reason}</TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(leave.status)}>
-                          {leave.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDetailModal(leave, 'leave')}
-                          >
-                            View Details
-                          </Button>
-                          {leave.status === 'pending' && (
-                            <>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Employee</TableHead>
+                        <TableHead className="whitespace-nowrap hidden sm:table-cell">Duration</TableHead>
+                        <TableHead className="whitespace-nowrap hidden md:table-cell">Reason</TableHead>
+                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                        <TableHead className="whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {leaves.map((leave) => (
+                        <TableRow key={leave.id}>
+                          <TableCell className="font-medium">{leave.employee_name}</TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="text-xs sm:text-sm">
+                              {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell max-w-xs truncate">{leave.reason}</TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(leave.status)}>
+                              {leave.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 sm:gap-2">
                               <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={() => handleStatusUpdate(leave.id, 'approved')}
-                                disabled={loading}
-                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => openDetailModal(leave, 'leave')}
+                                className="text-xs sm:text-sm"
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                <span className="hidden sm:inline">View</span>
+                                <Eye className="w-3 h-3 sm:hidden" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleStatusUpdate(leave.id, 'rejected')}
-                                disabled={loading}
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                              {leave.status === 'pending' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate(leave.id, 'approved')}
+                                    disabled={loading}
+                                    className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
+                                  >
+                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleStatusUpdate(leave.id, 'rejected')}
+                                    disabled={loading}
+                                    className="text-xs sm:text-sm"
+                                  >
+                                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               {leaves.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <Calendar className="w-12 h-12 mx-auto mb-3 text-gray-300" />
@@ -586,64 +602,73 @@ export const AdminPanel = () => {
               <CardDescription>Review and manage tour requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tours.map((tour) => (
-                    <TableRow key={tour.id}>
-                      <TableCell className="font-medium">{tour.employee_name}</TableCell>
-                      <TableCell>{tour.location}</TableCell>
-                      <TableCell>
-                        {formatDate(tour.start_date)} - {formatDate(tour.end_date)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={getStatusColor(tour.status)}>
-                          {tour.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openDetailModal(tour, 'tour')}
-                          >
-                            View Details
-                          </Button>
-                          {tour.status === 'pending' && (
-                            <>
+              <div className="overflow-x-auto -mx-4 sm:mx-0">
+                <div className="inline-block min-w-full align-middle sm:px-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Employee</TableHead>
+                        <TableHead className="whitespace-nowrap hidden sm:table-cell">Location</TableHead>
+                        <TableHead className="whitespace-nowrap hidden md:table-cell">Duration</TableHead>
+                        <TableHead className="whitespace-nowrap">Status</TableHead>
+                        <TableHead className="whitespace-nowrap">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {tours.map((tour) => (
+                        <TableRow key={tour.id}>
+                          <TableCell className="font-medium">{tour.employee_name}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{tour.location}</TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="text-xs sm:text-sm">
+                              {formatDate(tour.start_date)} - {formatDate(tour.end_date)}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusColor(tour.status)}>
+                              {tour.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1 sm:gap-2">
                               <Button
+                                variant="outline"
                                 size="sm"
-                                onClick={() => handleStatusUpdate(tour.id, 'approved')}
-                                disabled={loading}
-                                className="bg-green-600 hover:bg-green-700"
+                                onClick={() => openDetailModal(tour, 'tour')}
+                                className="text-xs sm:text-sm"
                               >
-                                <CheckCircle className="w-4 h-4" />
+                                <span className="hidden sm:inline">View</span>
+                                <Eye className="w-3 h-3 sm:hidden" />
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleStatusUpdate(tour.id, 'rejected')}
-                                disabled={loading}
-                              >
-                                <XCircle className="w-4 h-4" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                              {tour.status === 'pending' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleStatusUpdate(tour.id, 'approved')}
+                                    disabled={loading}
+                                    className="bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
+                                  >
+                                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => handleStatusUpdate(tour.id, 'rejected')}
+                                    disabled={loading}
+                                    className="text-xs sm:text-sm"
+                                  >
+                                    <XCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               {tours.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
