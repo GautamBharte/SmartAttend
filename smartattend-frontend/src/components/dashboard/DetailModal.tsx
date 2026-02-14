@@ -52,7 +52,7 @@ export const DetailModal = ({
         </Badge>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
@@ -79,7 +79,7 @@ export const DetailModal = ({
           <FileText className="h-4 w-4 text-gray-500" />
           <span className="text-sm font-medium">Reason:</span>
         </div>
-        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+        <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md whitespace-pre-line">
           {leave.reason || 'No reason provided'}
         </p>
       </div>
@@ -87,7 +87,7 @@ export const DetailModal = ({
       {leave.status === 'pending' && onStatusUpdate && (
         <>
           <Separator />
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={() => onStatusUpdate(leave.id, 'approved')}
               disabled={loading}
@@ -120,7 +120,7 @@ export const DetailModal = ({
         </Badge>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <div className="flex items-center space-x-2">
             <User className="h-4 w-4 text-gray-500" />
@@ -163,7 +163,7 @@ export const DetailModal = ({
       {tour.status === 'pending' && onStatusUpdate && (
         <>
           <Separator />
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={() => onStatusUpdate(tour.id, 'approved')}
               disabled={loading}
@@ -202,7 +202,7 @@ export const DetailModal = ({
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Employee Details</h3>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <User className="h-4 w-4 text-gray-500" />
@@ -230,7 +230,7 @@ export const DetailModal = ({
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-gray-700">Today's Attendance</h4>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <span className="text-sm font-medium">Status:</span>
               <div>

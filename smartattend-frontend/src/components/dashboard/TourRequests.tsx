@@ -72,13 +72,13 @@ export const TourRequests = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tour Requests</h1>
-          <p className="text-gray-600 mt-1">Apply for business tours and track your requests</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Tour Requests</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Apply for business tours and track your requests</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           New Request
         </Button>
@@ -92,7 +92,7 @@ export const TourRequests = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="start_date">Start Date</Label>
                   <Input
@@ -134,11 +134,11 @@ export const TourRequests = () => {
                   required
                 />
               </div>
-              <div className="flex space-x-3">
-                <Button type="submit" disabled={loading}>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button type="submit" disabled={loading} className="w-full sm:w-auto">
                   Submit Request
                 </Button>
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)}>
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
               </div>
@@ -159,14 +159,14 @@ export const TourRequests = () => {
           <div className="space-y-3">
             {tourHistory.length > 0 ? (
               tourHistory.map((tour: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <p className="font-medium">{tour.location}</p>
-                    <p className="text-sm text-gray-600 mt-1">{tour.reason}</p>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 dark:text-white">{tour.location}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{tour.reason}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                       {formatDate(tour.start_date)} - {formatDate(tour.end_date)}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       Requested on {formatDate(tour.created_at)}
                     </p>
                   </div>

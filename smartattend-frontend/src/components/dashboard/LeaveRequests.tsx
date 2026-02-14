@@ -148,13 +148,13 @@ export const LeaveRequests = () => {
     : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Leave Requests</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Apply for leave and track your requests</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Leave Requests</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Apply for leave and track your requests</p>
         </div>
-        <Button onClick={() => setShowForm(!showForm)}>
+        <Button onClick={() => setShowForm(!showForm)} className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           New Request
         </Button>
@@ -170,7 +170,7 @@ export const LeaveRequests = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
               <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-2xl font-bold text-blue-700 dark:text-blue-400">{leaveBalance.total}</p>
                 <p className="text-xs text-blue-600 dark:text-blue-500">Total</p>
@@ -414,37 +414,56 @@ export const LeaveRequests = () => {
           <CardDescription>Your submitted leave requests</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
+          <div className="space-y-3 sm:space-y-4">
             {leaveHistory.length > 0 ? (
               leaveHistory.map((leave: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium text-gray-900 dark:text-gray-100">{leave.reason}</p>
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                <div 
+                  key={index} 
+                  className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 p-4 sm:p-5 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow"
+                >
+                  {/* Main Content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Reason */}
+                    <p className="font-normal text-sm sm:text-base text-gray-700 dark:text-gray-100 whitespace-pre-line mb-3 break-words">
+                      {leave.reason}
+                    </p>
+
+                    {/* Date and Leave Type */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
+                      <div className="flex items-center flex-wrap gap-2">
+                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 font-medium">
+                          {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
+                        </p>
+                        {leave.working_days > 0 && (
+                          <span className="text-xs text-gray-500 dark:text-gray-500">
+                            ({leave.working_days} working day{leave.working_days !== 1 ? 's' : ''})
+                          </span>
+                        )}
+                      </div>
+                      <Badge variant="outline" className="text-xs px-2 py-0.5 w-fit">
                         {leave.leave_type === 'unpaid' ? 'Unpaid' : 'Paid'}
                       </Badge>
                     </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                      {formatDate(leave.start_date)} - {formatDate(leave.end_date)}
-                      {leave.working_days > 0 && (
-                        <span className="ml-1 text-xs">({leave.working_days} working day{leave.working_days !== 1 ? 's' : ''})</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+
+                    {/* Requested Date */}
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
                       Requested on {leave.created_at ? formatDate(leave.created_at) : 'N/A'}
                     </p>
                   </div>
-                  <Badge className={getStatusColor(leave.status)}>
-                    {leave.status}
-                  </Badge>
+
+                  {/* Status Badge */}
+                  <div className="flex-shrink-0">
+                    <Badge className={`${getStatusColor(leave.status)} text-xs sm:text-sm px-3 py-1.5 font-medium`}>
+                      {leave.status}
+                    </Badge>
+                  </div>
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
-                <p>No leave requests yet</p>
-                <p className="text-sm">Click "New Request" to apply for leave</p>
+              <div className="text-center py-8 sm:py-12 text-gray-500 dark:text-gray-400">
+                <CalendarIcon className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                <p className="text-sm sm:text-base">No leave requests yet</p>
+                <p className="text-xs sm:text-sm mt-1">Click "New Request" to apply for leave</p>
               </div>
             )}
           </div>

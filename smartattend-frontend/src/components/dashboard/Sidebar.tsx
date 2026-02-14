@@ -19,12 +19,17 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ user, activeTab, setActiveTab, isOpen, onClose }: SidebarProps) => {
+  // For admin users, hide dashboard, attendance, and leave tabs
+  const isAdmin = user?.role === 'admin';
+  
   const allItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'attendance', label: 'Attendance', icon: Clock },
-    { id: 'leave', label: 'Leave Requests', icon: Calendar },
+    ...(isAdmin ? [] : [
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'attendance', label: 'Attendance', icon: Clock },
+      { id: 'leave', label: 'Leave Requests', icon: Calendar },
+    ]),
     { id: 'tour', label: 'Tour Requests', icon: FileText },
-    ...(user?.role === 'admin' ? [{ id: 'admin', label: 'Admin Panel', icon: Users }] : []),
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin Panel', icon: Users }] : []),
   ];
 
   // Only show tabs that are enabled via feature flags

@@ -9,7 +9,7 @@ class Tour(db.Model):
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=False)
     location = db.Column(db.String(128), nullable=False)
-    reason = db.Column(db.String(255))
+    reason = db.Column(db.Text)  # Changed from String(255) to Text for longer reasons
     status = db.Column(db.String(32), default='pending')  # pending, approved, rejected
 
     user = db.relationship("User", backref="tours")

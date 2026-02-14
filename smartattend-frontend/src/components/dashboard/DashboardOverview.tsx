@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ContributionCalendar } from '../../components/calendar/ContributionCalendar';
 import { Clock, Calendar, TreePalm, FileText, CheckCircle, Timer } from 'lucide-react';
 import { DualModeService } from '@/services/dualModeService';
@@ -28,9 +29,24 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'checkin' | 'checkout' | null>(null);
+  const [currentTime, setCurrentTime] = useState<string>('');
 
   // Track the date the dashboard was last fetched for
   const lastFetchDate = useRef(officeToday());
+
+  // Get current time in office timezone
+  const getCurrentOfficeTime = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('en-US', {
+      timeZone: OFFICE.TIMEZONE,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+  };
 
   // ── Initial fetch ──────────────────────────────────────────────────
   useEffect(() => {
@@ -65,6 +81,17 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
+
+  // ── Update current time in dialog every second ──────────────────────
+  useEffect(() => {
+    if (confirmDialogOpen) {
+      setCurrentTime(getCurrentOfficeTime());
+      const interval = setInterval(() => {
+        setCurrentTime(getCurrentOfficeTime());
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [confirmDialogOpen]);
 
   const fetchAttendanceStatus = async () => {
     try {
@@ -105,36 +132,41 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
     }
   };
 
-  const handleQuickCheckIn = async () => {
-    setLoading(true);
-    try {
-      await DualModeService.checkIn();
-      toast({ title: 'Check-in successful!', description: 'Have a great day!' });
-      await fetchAttendanceStatus();
-    } catch (error: any) {
-      toast({
-        title: 'Check-in failed',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-    setLoading(false);
+  const handleQuickCheckIn = () => {
+    setCurrentTime(getCurrentOfficeTime());
+    setPendingAction('checkin');
+    setConfirmDialogOpen(true);
   };
 
-  const handleQuickCheckOut = async () => {
+  const handleQuickCheckOut = () => {
+    setCurrentTime(getCurrentOfficeTime());
+    setPendingAction('checkout');
+    setConfirmDialogOpen(true);
+  };
+
+  const confirmAction = async () => {
+    setConfirmDialogOpen(false);
     setLoading(true);
+    
     try {
-      await DualModeService.checkOut();
-      toast({ title: 'Check-out successful!', description: 'See you tomorrow!' });
+      if (pendingAction === 'checkin') {
+        await DualModeService.checkIn();
+        toast({ title: 'Check-in successful!', description: 'Have a great day!' });
+      } else if (pendingAction === 'checkout') {
+        await DualModeService.checkOut();
+        toast({ title: 'Check-out successful!', description: 'See you tomorrow!' });
+      }
       await fetchAttendanceStatus();
     } catch (error: any) {
       toast({
-        title: 'Check-out failed',
+        title: `${pendingAction === 'checkin' ? 'Check-in' : 'Check-out'} failed`,
         description: error.message,
         variant: 'destructive'
       });
+    } finally {
+      setLoading(false);
+      setPendingAction(null);
     }
-    setLoading(false);
   };
 
   // Derive display values from attendanceStatus
@@ -173,19 +205,19 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const StatusIcon = statusDisplay.icon;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 w-full overflow-x-hidden">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
           Welcome back, {user?.name}!
         </h1>
-        <p className="text-gray-600 dark:text-gray-400 mt-1">
+        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">
           Here's what's happening with your attendance today.
         </p>
       </div>
 
       {/* Quick Actions — only show when there's an action to take */}
       {!initialLoading && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 w-full">
           {attendanceStatus === 'not_checked_in' && (
             <Button
               onClick={handleQuickCheckIn}
@@ -217,8 +249,93 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
         </div>
       )}
 
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {pendingAction === 'checkin' ? (
+                <>
+                  <Clock className="w-5 h-5 text-green-600" />
+                  Confirm Check-In
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5 text-blue-600" />
+                  Confirm Check-Out
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAction === 'checkin' 
+                ? 'Are you sure you want to check in?'
+                : 'Are you sure you want to check out?'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-center">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  {pendingAction === 'checkin' ? 'Checking in at:' : 'Checking out at:'}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {currentTime}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setConfirmDialogOpen(false);
+                setPendingAction(null);
+              }}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmAction}
+              disabled={loading}
+              className={pendingAction === 'checkin' 
+                ? 'bg-green-600 hover:bg-green-700' 
+                : 'bg-blue-600 hover:bg-blue-700'}
+            >
+              {loading ? (
+                'Processing...'
+              ) : (
+                <>
+                  {pendingAction === 'checkin' ? (
+                    <>
+                      <Clock className="w-4 h-4 mr-2" />
+                      Confirm Check-In
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Confirm Check-Out
+                    </>
+                  )}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Today's Status</CardTitle>
@@ -285,8 +402,10 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
             A visual overview of your attendance, leaves, and business tours
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <ContributionCalendar />
+        <CardContent className="p-0 sm:p-6 overflow-hidden">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 w-full">
+            <ContributionCalendar />
+          </div>
         </CardContent>
       </Card>
     </div>
