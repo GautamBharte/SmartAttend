@@ -92,12 +92,13 @@ def get_employees():
 @admin_bp.route("/admin/leaves", methods=["GET"])
 @admin_required
 def get_leaves():
-    query = Leave.query
+    query = Leave.query.join(User, Leave.user_id == User.id)
     query = apply_filters(query, Leave)
     leaves = query.all()
     return jsonify([{
         "id": leave.id,
         "user_id": leave.user_id,
+        "employee_name": leave.user.name if leave.user else "Unknown Employee",
         "start_date": leave.start_date.isoformat(),
         "end_date": leave.end_date.isoformat(),
         "status": leave.status,
@@ -110,12 +111,13 @@ def get_leaves():
 @admin_bp.route("/admin/tours", methods=["GET"])
 @admin_required
 def get_tours():
-    query = Tour.query
+    query = Tour.query.join(User, Tour.user_id == User.id)
     query = apply_filters(query, Tour)
     tours = query.all()
     return jsonify([{
         "id": tour.id,
         "user_id": tour.user_id,
+        "employee_name": tour.user.name if tour.user else "Unknown Employee",
         "start_date": tour.start_date.isoformat(),
         "end_date": tour.end_date.isoformat(),
         "location": tour.location,

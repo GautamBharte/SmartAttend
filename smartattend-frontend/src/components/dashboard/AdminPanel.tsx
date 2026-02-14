@@ -266,12 +266,8 @@ export const AdminPanel = () => {
   const fetchLeaves = async () => {
     try {
       const data = await adminService.getLeaves(leaveFilters);
-      // Add employee names to leaves
-      const leavesWithNames = data.map(leave => ({
-        ...leave,
-        employee_name: employees.find(emp => emp.id === leave.user_id)?.name || 'Unknown Employee'
-      }));
-      setLeaves(leavesWithNames);
+      // Employee names are now included in the API response
+      setLeaves(data);
     } catch (error: any) {
       console.error('Failed to fetch leaves:', error);
       toast({
@@ -285,12 +281,8 @@ export const AdminPanel = () => {
   const fetchTours = async () => {
     try {
       const data = await adminService.getTours(tourFilters);
-      // Add employee names to tours
-      const toursWithNames = data.map(tour => ({
-        ...tour,
-        employee_name: employees.find(emp => emp.id === tour.user_id)?.name || 'Unknown Employee'
-      }));
-      setTours(toursWithNames);
+      // Employee names are now included in the API response
+      setTours(data);
     } catch (error: any) {
       console.error('Failed to fetch tours:', error);
       toast({
