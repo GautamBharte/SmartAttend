@@ -7,6 +7,7 @@ from app.models.attendance import Attendance
 from app.models.holiday import Holiday
 from app.models.leave_balance import LeaveBalance, ANNUAL_PAID_LEAVES
 from app.models.weekend_config import WeekendConfig
+from app.models.whatsapp_config import WhatsAppConfig
 from app.app import db
 from app.routes.auth import token_required
 from app.office_config import office_today, to_utc_iso
@@ -455,3 +456,48 @@ def admin_update_weekend_config():
         'weekend_days': sorted(set(weekend_days_list)),
         'weekend_days_string': weekend_days_str,
     }), 200
+
+
+# ── WhatsApp number management (admin) ────────────────────────────────
+
+@admin_bp.route("/admin/whatsapp", methods=["GET"])
+@admin_required
+def admin_get_whatsapp_numbers():
+    """List all WhatsApp notification numbers."""
+    numbers = WhatsAppConfig.query.order_by(WhatsAppConfig.id).all()
+    return jsonify([{
+        'id': n.id,
+        'phone_number': n.phone_number,
+        'label': n.label,
+        'created_at': n.created_at.isoformat() if n.created_at else None,
+    } for n in numbers]), 200
+
+
+@admin_bp.route("/admin/whatsapp", methods=["POST"])
+@admin_required
+def admin_add_whatsapp_number():
+    """Add a new WhatsApp notification number."""
+    data = request.get_json()
+    phone = data.get('phone_number', '').strip()
+    label = data.get('label', '').strip() or None
+
+    if not phone:
+        return jsonify({'error': 'phone_number is required'}), 400
+
+    if WhatsAppConfig.query.filter_by(phone_number=phone).first():
+        return jsonify({'error': 'This number already exists'}), 409
+
+    entry = WhatsAppConfig(phone_number=phone, label=label)
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({'message': 'Number added', 'id': entry.id}), 201
+
+
+@admin_bp.route("/admin/whatsapp/<int:entry_id>", methods=["DELETE"])
+@admin_required
+def admin_delete_whatsapp_number(entry_id):
+    """Remove a WhatsApp notification number."""
+    entry = WhatsAppConfig.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'message': 'Number removed'}), 200

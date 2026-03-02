@@ -3,9 +3,11 @@ from datetime import datetime, date, timedelta, timezone
 from app.app import db
 from app.models.attendance import Attendance
 from app.models.user import User
-from app.office_config import office_today, utc_now, to_utc_iso
+from app.office_config import office_today, utc_now, to_utc_iso, OFFICE_TZ
+from app.whatsapp import send_whatsapp_async
 import jwt
 import os
+from datetime import timezone as tz
 from functools import wraps
 
 attendance_bp = Blueprint('attendance', __name__)
@@ -41,6 +43,19 @@ def check_in(user):
     record.check_in_time = utc_now()
     db.session.add(record)
     db.session.commit()
+
+    # WhatsApp notification: attendence_daily
+    check_in_local = record.check_in_time.replace(tzinfo=tz.utc).astimezone(OFFICE_TZ)
+    send_whatsapp_async(
+        template_name="attendence_daily",
+        params=[
+            "Team",               # {{1}} Admin/recipient name
+            user.name,            # {{2}} Employee name
+            check_in_local.strftime("%-I:%M %p"),  # {{3}} Check-in time
+            "Office",             # {{4}} Location
+        ],
+    )
+
     return jsonify({
         'message': 'Check-in successful',
         'check_in_time': to_utc_iso(record.check_in_time)
@@ -58,6 +73,23 @@ def check_out(user):
 
     record.check_out_time = utc_now()
     db.session.commit()
+
+    # Compute total hours
+    delta = record.check_out_time - record.check_in_time
+    total_hours = round(delta.total_seconds() / 3600, 1)
+
+    # WhatsApp notification: attendence_daily_v2
+    check_out_local = record.check_out_time.replace(tzinfo=tz.utc).astimezone(OFFICE_TZ)
+    send_whatsapp_async(
+        template_name="attendence_daily_v2",
+        params=[
+            "Team",               # {{1}} Admin/recipient name
+            user.name,            # {{2}} Employee name
+            check_out_local.strftime("%-I:%M %p"),  # {{3}} Check-out time
+            f"{total_hours}h",    # {{4}} Total hours
+        ],
+    )
+
     return jsonify({
         'message': 'Check-out successful',
         'check_out_time': to_utc_iso(record.check_out_time)

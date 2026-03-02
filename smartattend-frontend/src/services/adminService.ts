@@ -256,6 +256,57 @@ class AdminService {
 
     return response.json();
   }
+  // ── WhatsApp Number Management ────────────────────────────────────────
+
+  async getWhatsAppNumbers(): Promise<WhatsAppNumber[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch WhatsApp numbers');
+    }
+
+    return response.json();
+  }
+
+  async addWhatsAppNumber(phoneNumber: string, label?: string): Promise<{ message: string; id: number }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify({ phone_number: phoneNumber, label }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add WhatsApp number');
+    }
+
+    return response.json();
+  }
+
+  async deleteWhatsAppNumber(entryId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/${entryId}`, {
+      method: 'DELETE',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete WhatsApp number');
+    }
+
+    return response.json();
+  }
+}
+
+export interface WhatsAppNumber {
+  id: number;
+  phone_number: string;
+  label: string | null;
+  created_at: string | null;
 }
 
 export interface Holiday {
