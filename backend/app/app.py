@@ -26,7 +26,7 @@ def create_app(test_config=None):
     CORS(app)
 
     # Register models (even if unused directly, this ensures Alembic sees them)
-    from app.models import user, attendance, leave, tour, otp, holiday, leave_balance, weekend_config, whatsapp_config
+    from app.models import user, attendance, leave, tour, otp, holiday, leave_balance, weekend_config, whatsapp_config, whatsapp_schedule
 
     # Register all route blueprints here
     from app.routes import auth, attendance, leave_tour, admin
@@ -89,177 +89,179 @@ def _start_scheduler():
     logger.info("Daily report scheduled at %02d:%02d %s", REPORT_HOUR, REPORT_MINUTE, OFFICE_TIMEZONE_NAME)
 
 
-# ── WhatsApp scheduled jobs ───────────────────────────────────────────
+# ── WhatsApp scheduled jobs (interval-based, reads times from DB) ─────
 def _start_whatsapp_scheduler():
     from app.whatsapp import is_whatsapp_configured, send_whatsapp_to_all, _send_single
-    from app.office_config import (
-        OFFICE_TIMEZONE_NAME, OFFICE_TZ,
-        OFFICE_START_HOUR, OFFICE_START_MINUTE,
-        OFFICE_END_HOUR, OFFICE_END_MINUTE,
-    )
+    from app.office_config import OFFICE_TIMEZONE_NAME, OFFICE_TZ
     from apscheduler.schedulers.background import BackgroundScheduler
-    from apscheduler.triggers.cron import CronTrigger
+    from apscheduler.triggers.interval import IntervalTrigger
+    from datetime import datetime
 
     if not is_whatsapp_configured():
         logger.warning("WhatsApp not configured — WhatsApp scheduled jobs disabled. "
                         "Set WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN in .env to enable.")
         return
 
-    scheduler = BackgroundScheduler(daemon=True)
+    # Track which jobs already fired this minute to avoid duplicates
+    _fired = set()
 
-    # ── 1. Morning Report (daily_attendence_v3) — at office start + 1 hour ─
-    morning_hour = (OFFICE_START_HOUR + 1) % 24
-    morning_minute = OFFICE_START_MINUTE
-
-    def _send_morning_report():
+    def _dispatcher():
         with app.app_context():
+            from app.models.whatsapp_schedule import WhatsAppScheduleConfig
             from app.models.user import User
             from app.models.attendance import Attendance
             from app.office_config import office_today
 
+            now = datetime.now(OFFICE_TZ)
+            current_hm = now.strftime("%H:%M")
+
+            # Reset the fired set at the start of each new minute
+            keys_to_remove = [k for k in _fired if k != current_hm]
+            for k in keys_to_remove:
+                _fired.discard(k)
+
+            config = WhatsAppScheduleConfig.get_current()
             today = office_today()
-            employees = User.query.filter(User.role != 'admin').order_by(User.name).all()
 
-            logged_in = []
-            absent = []
-            for emp in employees:
-                record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
-                if record and record.check_in_time:
-                    logged_in.append(emp.name)
-                else:
-                    absent.append(emp.name)
+            # ── 1. Attendance Reminder → sent to each EMPLOYEE's phone ──
+            if config.reminder_enabled and current_hm == config.reminder_time and f"reminder_{current_hm}" not in _fired:
+                _fired.add(f"reminder_{current_hm}")
+                employees = User.query.filter(User.role != 'admin').all()
+                for emp in employees:
+                    record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+                    if not record or not record.check_in_time:
+                        if not emp.phone_number:
+                            continue  # skip employees without a phone number
+                        # Calculate minutes until morning report
+                        try:
+                            mr_h, mr_m = map(int, config.morning_report_time.split(':'))
+                            rem_h, rem_m = map(int, config.reminder_time.split(':'))
+                            diff = (mr_h * 60 + mr_m) - (rem_h * 60 + rem_m)
+                            time_str = f"{diff} minutes" if diff > 0 else "soon"
+                        except Exception:
+                            time_str = "30 minutes"
+                        _send_single(
+                            to=emp.phone_number,
+                            template_name="daily_attendence_v2",
+                            params=[emp.name, time_str],
+                        )
+                logger.info("Attendance reminders sent to employees.")
 
-            logged_str = ", ".join(logged_in) if logged_in else "None"
-            absent_str = ", ".join(absent) if absent else "None"
-
-            send_whatsapp_to_all(
-                template_name="daily_attendence_v3",
-                params=["Team", logged_str, absent_str],
-            )
-            logger.info("Morning WhatsApp report sent.")
-
-    scheduler.add_job(
-        _send_morning_report,
-        trigger=CronTrigger(hour=morning_hour, minute=morning_minute, timezone=OFFICE_TIMEZONE_NAME),
-        id="whatsapp_morning_report",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
-
-    # ── 2. Attendance Reminder (daily_attendence_v2) — 30 min before morning report
-    reminder_hour = OFFICE_START_HOUR
-    reminder_minute = OFFICE_START_MINUTE + 30
-    if reminder_minute >= 60:
-        reminder_hour = (reminder_hour + 1) % 24
-        reminder_minute -= 60
-
-    def _send_attendance_reminder():
-        with app.app_context():
-            from app.models.user import User
-            from app.models.attendance import Attendance
-            from app.office_config import office_today
-
-            today = office_today()
-            employees = User.query.filter(User.role != 'admin').all()
-
-            for emp in employees:
-                record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
-                if not record or not record.check_in_time:
-                    # Send reminder to the employee's own number if stored
-                    # For now, send to all admin numbers about the absent employee
-                    send_whatsapp_to_all(
-                        template_name="daily_attendence_v2",
-                        params=[emp.name, "30 minutes"],
-                    )
-            logger.info("Attendance reminders sent.")
-
-    scheduler.add_job(
-        _send_attendance_reminder,
-        trigger=CronTrigger(hour=reminder_hour, minute=reminder_minute, timezone=OFFICE_TIMEZONE_NAME),
-        id="whatsapp_attendance_reminder",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
-
-    # ── 3. End of Day Wrap-Up (daily_attendence) — at office end + 1 hour ─
-    eod_hour = (OFFICE_END_HOUR + 1) % 24
-    eod_minute = OFFICE_END_MINUTE
-
-    def _send_eod_wrapup():
-        with app.app_context():
-            from app.models.user import User
-            from app.models.attendance import Attendance
-            from app.office_config import office_today
-
-            today = office_today()
-            employees = User.query.filter(User.role != 'admin').order_by(User.name).all()
-
-            total = len(employees)
-            logged_out = []
-            ghosted = []
-            still_online = []
-
-            for emp in employees:
-                record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
-                if record and record.check_in_time:
-                    if record.check_out_time:
-                        logged_out.append(emp.name)
+            # ── 2. Morning Report ─────────────────────────────────
+            if config.morning_report_enabled and current_hm == config.morning_report_time and f"morning_{current_hm}" not in _fired:
+                _fired.add(f"morning_{current_hm}")
+                employees = User.query.filter(User.role != 'admin').order_by(User.name).all()
+                logged_in = []
+                absent = []
+                for emp in employees:
+                    record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+                    if record and record.check_in_time:
+                        logged_in.append(emp.name)
                     else:
-                        still_online.append(emp.name)
-                else:
-                    ghosted.append(emp.name)
+                        absent.append(emp.name)
+                send_whatsapp_to_all(
+                    template_name="daily_attendence_v3",
+                    params=[
+                        "Team",
+                        ", ".join(logged_in) if logged_in else "None",
+                        ", ".join(absent) if absent else "None",
+                    ],
+                )
+                logger.info("Morning WhatsApp report sent.")
 
-            send_whatsapp_to_all(
-                template_name="daily_attendence",
-                params=[
-                    "Team",
-                    str(total),
-                    ", ".join(logged_out) if logged_out else "None",
-                    ", ".join(ghosted) if ghosted else "None",
-                    ", ".join(still_online) if still_online else "None",
-                ],
-            )
-            logger.info("EOD WhatsApp wrap-up sent.")
+            # ── 3. Evening Checkout Reminder → employees still checked in ─
+            if config.evening_reminder_enabled and current_hm == config.evening_reminder_time and f"eve_remind_{current_hm}" not in _fired:
+                _fired.add(f"eve_remind_{current_hm}")
+                employees = User.query.filter(User.role != 'admin').all()
 
+                # Compute minutes until evening report
+                try:
+                    eve_h, eve_m = map(int, config.evening_report_time.split(':'))
+                    now_h, now_m = map(int, current_hm.split(':'))
+                    diff = (eve_h * 60 + eve_m) - (now_h * 60 + now_m)
+                    if diff <= 0:
+                        diff = 30  # fallback
+                    minutes_label = f"{diff} minutes" if diff != 1 else "1 minute"
+                except Exception:
+                    minutes_label = "30 minutes"
+
+                for emp in employees:
+                    record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+                    if record and record.check_in_time and not record.check_out_time:
+                        if record.is_overtime:
+                            continue  # overtime workers already know
+                        if not emp.phone_number:
+                            continue
+                        _send_single(
+                            to=emp.phone_number,
+                            template_name="daily_attendence_v4",
+                            params=[emp.name, minutes_label],
+                        )
+                logger.info("Evening checkout reminders sent to employees.")
+
+            # ── 4. Evening Report ─────────────────────────────────
+            if config.evening_report_enabled and current_hm == config.evening_report_time and f"evening_{current_hm}" not in _fired:
+                _fired.add(f"evening_{current_hm}")
+                employees = User.query.filter(User.role != 'admin').order_by(User.name).all()
+                total = len(employees)
+                logged_out = []
+                ghosted = []
+                still_online = []
+                overtime_workers = []
+                for emp in employees:
+                    record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+                    if record and record.check_in_time:
+                        if record.check_out_time:
+                            logged_out.append(emp.name)
+                        elif record.is_overtime:
+                            overtime_workers.append(emp.name)
+                        else:
+                            still_online.append(emp.name)
+                    else:
+                        ghosted.append(emp.name)
+
+                # Merge overtime into still_online display for the template
+                all_still_online = still_online + [f"{n} (OT)" for n in overtime_workers]
+                send_whatsapp_to_all(
+                    template_name="daily_attendence",
+                    params=[
+                        "Team",
+                        str(total),
+                        ", ".join(logged_out) if logged_out else "None",
+                        ", ".join(ghosted) if ghosted else "None",
+                        ", ".join(all_still_online) if all_still_online else "None",
+                    ],
+                )
+                logger.info("EOD WhatsApp wrap-up sent.")
+
+            # ── 5. Midnight Oil Alert → only non-overtime employees ─
+            if config.midnight_alert_enabled and current_hm == config.midnight_alert_time and f"midnight_{current_hm}" not in _fired:
+                _fired.add(f"midnight_{current_hm}")
+                employees = User.query.filter(User.role != 'admin').all()
+                for emp in employees:
+                    record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
+                    if record and record.check_in_time and not record.check_out_time:
+                        if record.is_overtime:
+                            continue  # skip — employee knowingly working overtime
+                        if not emp.phone_number:
+                            continue  # skip employees without a phone number
+                        _send_single(
+                            to=emp.phone_number,
+                            template_name="attendence_daily_v3",
+                            params=[emp.name],
+                        )
+                logger.info("Midnight oil alerts sent to non-overtime employees.")
+
+    scheduler = BackgroundScheduler(daemon=True)
     scheduler.add_job(
-        _send_eod_wrapup,
-        trigger=CronTrigger(hour=eod_hour, minute=eod_minute, timezone=OFFICE_TIMEZONE_NAME),
-        id="whatsapp_eod_wrapup",
+        _dispatcher,
+        trigger=IntervalTrigger(seconds=60),
+        id="whatsapp_dispatcher",
         replace_existing=True,
-        misfire_grace_time=3600,
+        misfire_grace_time=120,
     )
-
-    # ── 4. Midnight Oil Alert (attendence_daily_v3) — at 11 PM ─────────
-    def _send_midnight_alert():
-        with app.app_context():
-            from app.models.user import User
-            from app.models.attendance import Attendance
-            from app.office_config import office_today
-
-            today = office_today()
-            employees = User.query.filter(User.role != 'admin').all()
-
-            for emp in employees:
-                record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
-                if record and record.check_in_time and not record.check_out_time:
-                    # Still checked in — send alert to all admin numbers
-                    send_whatsapp_to_all(
-                        template_name="attendence_daily_v3",
-                        params=[emp.name],
-                    )
-            logger.info("Midnight oil alerts sent.")
-
-    scheduler.add_job(
-        _send_midnight_alert,
-        trigger=CronTrigger(hour=23, minute=0, timezone=OFFICE_TIMEZONE_NAME),
-        id="whatsapp_midnight_alert",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
-
     scheduler.start()
-    logger.info("WhatsApp scheduled jobs started (morning=%02d:%02d, reminder=%02d:%02d, eod=%02d:%02d, midnight=23:00 %s)",
-                morning_hour, morning_minute, reminder_hour, reminder_minute, eod_hour, eod_minute, OFFICE_TIMEZONE_NAME)
+    logger.info("WhatsApp interval dispatcher started (checks every 60s, timezone=%s)", OFFICE_TIMEZONE_NAME)
 
 
 # Avoid double-scheduling when Flask reloader is active

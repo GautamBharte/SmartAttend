@@ -300,6 +300,37 @@ class AdminService {
 
     return response.json();
   }
+
+  // ── WhatsApp Schedule ──────────────────────────────────────────────
+
+  async getWhatsAppSchedule(): Promise<WhatsAppSchedule> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/schedule`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch WhatsApp schedule');
+    }
+
+    return response.json();
+  }
+
+  async updateWhatsAppSchedule(schedule: Partial<WhatsAppSchedule>): Promise<WhatsAppSchedule & { message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/schedule`, {
+      method: 'PATCH',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify(schedule),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update WhatsApp schedule');
+    }
+
+    return response.json();
+  }
 }
 
 export interface WhatsAppNumber {
@@ -307,6 +338,21 @@ export interface WhatsAppNumber {
   phone_number: string;
   label: string | null;
   created_at: string | null;
+}
+
+export interface WhatsAppSchedule {
+  reminder_time: string;
+  morning_report_time: string;
+  evening_reminder_time: string;
+  evening_report_time: string;
+  midnight_alert_time: string;
+  reminder_enabled: boolean;
+  morning_report_enabled: boolean;
+  evening_reminder_enabled: boolean;
+  evening_report_enabled: boolean;
+  midnight_alert_enabled: boolean;
+  checkin_alert_enabled: boolean;
+  checkout_alert_enabled: boolean;
 }
 
 export interface Holiday {

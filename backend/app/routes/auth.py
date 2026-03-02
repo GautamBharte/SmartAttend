@@ -67,15 +67,19 @@ def update_profile(user):
     """
     data = request.get_json()
     name = data.get("name")
+    phone_number = data.get("phone_number")
 
     if name:
         user.name = name
+    if phone_number is not None:  # allow setting to empty string to clear
+        user.phone_number = phone_number.strip() if phone_number else None
 
     db.session.commit()
     return jsonify({
         "message": "Profile updated",
         "name": user.name,
         "email": user.email,
+        "phone_number": user.phone_number,
     }), 200
 
 
@@ -86,6 +90,7 @@ def get_profile(user):
         "id": user.id,
         "name": user.name,
         "email": user.email,
+        "phone_number": user.phone_number,
         "role": user.role,
         "created_at": user.created_at.isoformat(),
     }), 200
