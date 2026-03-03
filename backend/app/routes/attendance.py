@@ -78,13 +78,14 @@ def check_in(user):
     wa_config = WhatsAppScheduleConfig.get_current()
     if wa_config.checkin_alert_enabled:
         check_in_local = record.check_in_time.replace(tzinfo=tz.utc).astimezone(OFFICE_TZ)
+        ci_time_str = check_in_local.strftime("%-I:%M %p")
         send_whatsapp_async(
             template_name="attendence_daily",
-            params=[
-                "Team",               # {{1}} Admin/recipient name
-                user.name,            # {{2}} Employee name
-                check_in_local.strftime("%-I:%M %p"),  # {{3}} Check-in time
-                "Office",             # {{4}} Location
+            params_fn=lambda label, _n=user.name, _t=ci_time_str: [
+                label,           # {{1}} Admin's own name
+                _n,              # {{2}} Employee name
+                _t,              # {{3}} Check-in time
+                "Office",        # {{4}} Location
             ],
         )
 
@@ -121,13 +122,15 @@ def check_out(user):
     wa_config = WhatsAppScheduleConfig.get_current()
     if wa_config.checkout_alert_enabled:
         check_out_local = record.check_out_time.replace(tzinfo=tz.utc).astimezone(OFFICE_TZ)
+        co_time_str = check_out_local.strftime("%-I:%M %p")
+        hours_str = f"{total_hours}h"
         send_whatsapp_async(
             template_name="attendence_daily_v2",
-            params=[
-                "Team",               # {{1}} Admin/recipient name
-                user.name,            # {{2}} Employee name
-                check_out_local.strftime("%-I:%M %p"),  # {{3}} Check-out time
-                f"{total_hours}h",    # {{4}} Total hours
+            params_fn=lambda label, _n=user.name, _t=co_time_str, _h=hours_str: [
+                label,           # {{1}} Admin's own name
+                _n,              # {{2}} Employee name
+                _t,              # {{3}} Check-out time
+                _h,              # {{4}} Total hours
             ],
         )
 

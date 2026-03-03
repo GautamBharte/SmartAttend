@@ -33,23 +33,11 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkin' | 'checkout' | null>(null);
-  const [currentTime, setCurrentTime] = useState<string>('');
   const [editableTime, setEditableTime] = useState<string>('');  // HH:MM 24h format
 
   // Track the date the dashboard was last fetched for
   const lastFetchDate = useRef(officeToday());
 
-  // Get current time in office timezone
-  const getCurrentOfficeTime = () => {
-    const now = new Date();
-    return now.toLocaleTimeString('en-US', {
-      timeZone: OFFICE.TIMEZONE,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
-  };
 
   // Get current time in 24h HH:MM format for the time input
   const getCurrentOfficeTime24 = () => {
@@ -96,16 +84,8 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
     };
   }, []);
 
-  // ── Update current time in dialog every second ──────────────────────
-  useEffect(() => {
-    if (confirmDialogOpen) {
-      setCurrentTime(getCurrentOfficeTime());
-      const interval = setInterval(() => {
-        setCurrentTime(getCurrentOfficeTime());
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [confirmDialogOpen]);
+
+
 
   const fetchAttendanceStatus = async () => {
     try {
@@ -148,14 +128,12 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   };
 
   const handleQuickCheckIn = () => {
-    setCurrentTime(getCurrentOfficeTime());
     setEditableTime(getCurrentOfficeTime24());
     setPendingAction('checkin');
     setConfirmDialogOpen(true);
   };
 
   const handleQuickCheckOut = () => {
-    setCurrentTime(getCurrentOfficeTime());
     setEditableTime(getCurrentOfficeTime24());
     setPendingAction('checkout');
     setConfirmDialogOpen(true);

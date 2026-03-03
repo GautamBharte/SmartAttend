@@ -29,12 +29,13 @@ def create_app(test_config=None):
     from app.models import user, attendance, leave, tour, otp, holiday, leave_balance, weekend_config, whatsapp_config, whatsapp_schedule
 
     # Register all route blueprints here
-    from app.routes import auth, attendance, leave_tour, admin
+    from app.routes import auth, attendance, leave_tour, admin, webhook
 
     app.register_blueprint(auth.auth_bp, url_prefix='/auth')
     app.register_blueprint(attendance.attendance_bp, url_prefix='/attendance')
     app.register_blueprint(leave_tour.leave_tour_bp, url_prefix='/request')
     app.register_blueprint(admin.admin_bp)
+    app.register_blueprint(webhook.webhook_bp)
 
     @app.route('/ping')
     def ping():
@@ -91,7 +92,7 @@ def _start_scheduler():
 
 # ── WhatsApp scheduled jobs (interval-based, reads times from DB) ─────
 def _start_whatsapp_scheduler():
-    from app.whatsapp import is_whatsapp_configured, send_whatsapp_to_all, _send_single
+    from app.whatsapp import is_whatsapp_configured, send_whatsapp_to_all, send_whatsapp_to_all_personalized, _send_single, truncate_name_list
     from app.office_config import OFFICE_TIMEZONE_NAME, OFFICE_TZ
     from apscheduler.schedulers.background import BackgroundScheduler
     from apscheduler.triggers.interval import IntervalTrigger
@@ -128,6 +129,8 @@ def _start_whatsapp_scheduler():
                 _fired.add(f"reminder_{current_hm}")
                 employees = User.query.filter(User.role != 'admin').all()
                 for emp in employees:
+                    if not emp.notify_reminder:
+                        continue  # employee opted out
                     record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
                     if not record or not record.check_in_time:
                         if not emp.phone_number:
@@ -159,19 +162,19 @@ def _start_whatsapp_scheduler():
                         logged_in.append(emp.name)
                     else:
                         absent.append(emp.name)
-                send_whatsapp_to_all(
+                send_whatsapp_to_all_personalized(
                     template_name="daily_attendence_v3",
-                    params=[
-                        "Team",
-                        ", ".join(logged_in) if logged_in else "None",
-                        ", ".join(absent) if absent else "None",
+                    params_fn=lambda label: [
+                        label,
+                        truncate_name_list(logged_in),
+                        truncate_name_list(absent),
                     ],
                 )
                 logger.info("Morning WhatsApp report sent.")
 
-            # ── 3. Evening Checkout Reminder → employees still checked in ─
-            if config.evening_reminder_enabled and current_hm == config.evening_reminder_time and f"eve_remind_{current_hm}" not in _fired:
-                _fired.add(f"eve_remind_{current_hm}")
+            # ── 3. Logoff Reminder (v5) → nudge for still-checked-in ─
+            if config.logoff_reminder_enabled and current_hm == config.logoff_reminder_time and f"logoff_{current_hm}" not in _fired:
+                _fired.add(f"logoff_{current_hm}")
                 employees = User.query.filter(User.role != 'admin').all()
 
                 # Compute minutes until evening report
@@ -180,12 +183,14 @@ def _start_whatsapp_scheduler():
                     now_h, now_m = map(int, current_hm.split(':'))
                     diff = (eve_h * 60 + eve_m) - (now_h * 60 + now_m)
                     if diff <= 0:
-                        diff = 30  # fallback
+                        diff = 15  # fallback
                     minutes_label = f"{diff} minutes" if diff != 1 else "1 minute"
                 except Exception:
-                    minutes_label = "30 minutes"
+                    minutes_label = "15 minutes"
 
                 for emp in employees:
+                    if not emp.notify_checkout:
+                        continue  # employee opted out
                     record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
                     if record and record.check_in_time and not record.check_out_time:
                         if record.is_overtime:
@@ -194,10 +199,10 @@ def _start_whatsapp_scheduler():
                             continue
                         _send_single(
                             to=emp.phone_number,
-                            template_name="daily_attendence_v4",
+                            template_name="daily_attendence_v5",
                             params=[emp.name, minutes_label],
                         )
-                logger.info("Evening checkout reminders sent to employees.")
+                logger.info("Logoff reminders (v5) sent to employees.")
 
             # ── 4. Evening Report ─────────────────────────────────
             if config.evening_report_enabled and current_hm == config.evening_report_time and f"evening_{current_hm}" not in _fired:
@@ -222,14 +227,14 @@ def _start_whatsapp_scheduler():
 
                 # Merge overtime into still_online display for the template
                 all_still_online = still_online + [f"{n} (OT)" for n in overtime_workers]
-                send_whatsapp_to_all(
+                send_whatsapp_to_all_personalized(
                     template_name="daily_attendence",
-                    params=[
-                        "Team",
+                    params_fn=lambda label: [
+                        label,
                         str(total),
-                        ", ".join(logged_out) if logged_out else "None",
-                        ", ".join(ghosted) if ghosted else "None",
-                        ", ".join(all_still_online) if all_still_online else "None",
+                        truncate_name_list(logged_out),
+                        truncate_name_list(ghosted),
+                        truncate_name_list(all_still_online),
                     ],
                 )
                 logger.info("EOD WhatsApp wrap-up sent.")
@@ -239,6 +244,8 @@ def _start_whatsapp_scheduler():
                 _fired.add(f"midnight_{current_hm}")
                 employees = User.query.filter(User.role != 'admin').all()
                 for emp in employees:
+                    if not emp.notify_midnight:
+                        continue  # employee opted out
                     record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
                     if record and record.check_in_time and not record.check_out_time:
                         if record.is_overtime:

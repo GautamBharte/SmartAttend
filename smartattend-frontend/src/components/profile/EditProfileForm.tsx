@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
 import { Loader2, User, Lock, Mail, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2, Phone } from 'lucide-react';
@@ -75,6 +76,12 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
   // ── Phone number update ────────────────────────────────────────────
   const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
   const [savingPhone, setSavingPhone] = useState(false);
+
+  // ── Notification preferences ───────────────────────────────────────
+  const [notifyReminder, setNotifyReminder] = useState(user?.notify_reminder ?? true);
+  const [notifyCheckout, setNotifyCheckout] = useState(user?.notify_checkout ?? true);
+  const [notifyMidnight, setNotifyMidnight] = useState(user?.notify_midnight ?? true);
+  const [savingPrefs, setSavingPrefs] = useState(false);
 
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -291,6 +298,59 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
               Save Phone Number
             </Button>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* ── Notification Preferences ──────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            🔔 Notification Preferences
+          </CardTitle>
+          <CardDescription>
+            Choose which WhatsApp notifications you want to receive
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            { id: 'notify_reminder', label: '⏰ Attendance Reminder', desc: 'Reminder if you haven\'t checked in', value: notifyReminder, setter: setNotifyReminder },
+            { id: 'notify_checkout', label: '👻 Checkout Reminder', desc: 'Pre-evening reminder to check out', value: notifyCheckout, setter: setNotifyCheckout },
+            { id: 'notify_midnight', label: '🦉 Midnight Alert', desc: 'Late-night alert if still checked in', value: notifyMidnight, setter: setNotifyMidnight },
+          ].map(({ id, label, desc, value, setter }) => (
+            <div key={id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
+              </div>
+              <Switch
+                checked={value}
+                disabled={savingPrefs}
+                onCheckedChange={async (checked: boolean) => {
+                  setter(checked);
+                  setSavingPrefs(true);
+                  try {
+                    const result = await DualModeService.updateProfile({
+                      name: user.name,
+                      email: user.email,
+                      [id]: checked,
+                    });
+                    onProfileUpdate({ ...user, [id]: checked });
+                    toast({ title: checked ? 'Notifications enabled' : 'Notifications disabled' });
+                  } catch (err: any) {
+                    setter(!checked); // revert on failure
+                    toast({ title: 'Failed', description: err.message, variant: 'destructive' });
+                  } finally {
+                    setSavingPrefs(false);
+                  }
+                }}
+              />
+            </div>
+          ))}
+          <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              💡 Admin-sent reports (morning & evening) cannot be opted out of here. Contact your admin to disable those.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

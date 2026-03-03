@@ -6,6 +6,7 @@ export interface Employee {
   id: number;
   name: string;
   email: string;
+  phone_number: string | null;
   created_at: string;
   today_status: 'checked_in' | 'checked_out' | 'absent';
   check_in_time: string | null;
@@ -331,6 +332,21 @@ class AdminService {
 
     return response.json();
   }
+
+  // ── Employee Phone Management ───────────────────────────────────────
+
+  async updateEmployeePhone(empId: number, phoneNumber: string): Promise<{ message: string; id: number; phone_number: string | null }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees/${empId}/phone`, {
+      method: 'PATCH',
+      headers: { ...authService.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: phoneNumber }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to update employee phone');
+    }
+    return data;
+  }
 }
 
 export interface WhatsAppNumber {
@@ -343,12 +359,12 @@ export interface WhatsAppNumber {
 export interface WhatsAppSchedule {
   reminder_time: string;
   morning_report_time: string;
-  evening_reminder_time: string;
+  logoff_reminder_time: string;
   evening_report_time: string;
   midnight_alert_time: string;
   reminder_enabled: boolean;
   morning_report_enabled: boolean;
-  evening_reminder_enabled: boolean;
+  logoff_reminder_enabled: boolean;
   evening_report_enabled: boolean;
   midnight_alert_enabled: boolean;
   checkin_alert_enabled: boolean;

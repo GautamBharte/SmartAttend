@@ -1,5 +1,6 @@
 """
-Migration: Add new columns for WhatsApp integration, overtime, and notification toggles.
+Migration: Add new columns for WhatsApp integration, overtime, notification
+toggles, and employee notification preferences.
 
 Run:  python scripts/migrate_whatsapp_overtime.py
 """
@@ -38,11 +39,19 @@ def migrate():
             ("reminder_enabled", "1"),
             ("morning_report_enabled", "1"),
             ("evening_reminder_enabled", "1"),
+            ("logoff_reminder_enabled", "1"),
             ("evening_report_enabled", "1"),
             ("midnight_alert_enabled", "1"),
             ("checkin_alert_enabled", "1"),
             ("checkout_alert_enabled", "1"),
         ]
+
+        # Add logoff_reminder_time schedule column
+        try:
+            cursor.execute("ALTER TABLE whatsapp_schedule_config ADD COLUMN logoff_reminder_time VARCHAR(5) NOT NULL DEFAULT '18:45'")
+            print("✅ Added logoff_reminder_time to whatsapp_schedule_config table.")
+        except Exception:
+            print("ℹ️  whatsapp_schedule_config.logoff_reminder_time already exists.")
         for col, default in toggles:
             try:
                 cursor.execute(f"ALTER TABLE whatsapp_schedule_config ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT {default}")
@@ -50,10 +59,23 @@ def migrate():
             except Exception:
                 print(f"ℹ️  whatsapp_schedule_config.{col} already exists.")
 
+        # ── 5. Add employee notification preference columns to users ──
+        prefs = [
+            ("notify_reminder", "1"),
+            ("notify_checkout", "1"),
+            ("notify_midnight", "1"),
+        ]
+        for col, default in prefs:
+            try:
+                cursor.execute(f"ALTER TABLE users ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT {default}")
+                print(f"✅ Added {col} to users table.")
+            except Exception:
+                print(f"ℹ️  users.{col} already exists.")
+
         conn.commit()
         conn.close()
 
-        # ── 5. Create new tables if they don't exist ─────────────
+        # ── 6. Create new tables if they don't exist ─────────────
         db.create_all()
         print("✅ Ensured all tables exist (whatsapp_config, whatsapp_schedule_config, etc).")
 

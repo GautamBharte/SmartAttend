@@ -56,6 +56,7 @@
 | `WHATSAPP_PHONE_NUMBER_ID` | Meta Business phone number ID | `123456789012345` |
 | `WHATSAPP_ACCESS_TOKEN` | Permanent or temporary access token | `EAAG...` |
 | `WHATSAPP_API_VERSION` | Graph API version (optional, default `v21.0`) | `v21.0` |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | Token for Meta webhook verification | `smartattend_verify_token` |
 
 Set these in your `.env` file. If either `PHONE_NUMBER_ID` or `ACCESS_TOKEN` is missing, all WhatsApp sends are silently skipped.
 
@@ -83,7 +84,7 @@ Let's get to work! 🚀
 
 | Param | Value |
 |-------|-------|
-| `{{1}}` | "Team" (recipient label) |
+| `{{1}}` | Admin's label/name (personalized per recipient, fallback "Team") |
 | `{{2}}` | Employee name |
 | `{{3}}` | Check-in time (e.g. "9:15 AM") |
 | `{{4}}` | "Office" |
@@ -109,7 +110,7 @@ Great work today! 👏
 
 | Param | Value |
 |-------|-------|
-| `{{1}}` | "Team" (recipient label) |
+| `{{1}}` | Admin's label/name (personalized per recipient, fallback "Team") |
 | `{{2}}` | Employee name |
 | `{{3}}` | Check-out time (e.g. "6:30 PM") |
 | `{{4}}` | Total hours (e.g. "9.2h") |
@@ -140,6 +141,7 @@ Have a great day! 💻
 
 **Sent to:** Each absent employee's own phone number (`User.phone_number`)
 > Employees without a phone number are silently skipped.
+> Employees who opted out (`notify_reminder = false`) are skipped.
 
 ---
 
@@ -162,9 +164,9 @@ Hi {{1}} 👋, here is the current login status for the CATS team:
 
 | Param | Value |
 |-------|-------|
-| `{{1}}` | "Team" |
-| `{{2}}` | Comma-separated list of logged-in employees |
-| `{{3}}` | Comma-separated list of absent employees |
+| `{{1}}` | Admin's label/name (personalized per recipient, fallback "Team") |
+| `{{2}}` | Comma-separated list of logged-in employees (truncated at ~900 chars) |
+| `{{3}}` | Comma-separated list of absent employees (truncated at ~900 chars) |
 
 **Sent to:** All admin numbers (`WhatsAppConfig` table)
 
@@ -176,11 +178,11 @@ Sent **on schedule** at end of day.
 
 | Param | Value |
 |-------|-------|
-| `{{1}}` | "Team" |
+| `{{1}}` | Admin's label/name (personalized per recipient, fallback "Team") |
 | `{{2}}` | Total employee count |
-| `{{3}}` | Logged out employees (comma-separated) |
-| `{{4}}` | Absent / never logged in (comma-separated) |
-| `{{5}}` | Still online, with `(OT)` suffix for overtime workers |
+| `{{3}}` | Logged out employees (truncated at ~900 chars) |
+| `{{4}}` | Absent / never logged in (truncated at ~900 chars) |
+| `{{5}}` | Still online, with `(OT)` suffix for overtime workers (truncated at ~900 chars) |
 
 **Sent to:** All admin numbers (`WhatsAppConfig` table)
 
@@ -197,6 +199,7 @@ Sent **on schedule** late at night to employees still checked in (who have NOT m
 **Sent to:** Each employee's own phone number (`User.phone_number`)
 > Employees who marked **Overtime** are skipped.
 > Employees without a phone number are skipped.
+> Employees who opted out (`notify_midnight = false`) are skipped.
 
 ---
 
@@ -227,6 +230,7 @@ been abducted by aliens. 🛸 Have a great evening!
 **Sent to:** Each employee's own phone number (`User.phone_number`)
 > Employees who marked **Overtime** are skipped.
 > Employees without a phone number are skipped.
+> Employees who opted out (`notify_checkout = false`) are skipped.
 
 ---
 
@@ -397,6 +401,35 @@ All times are in the office timezone (configured in `office_config.py`).
   - **Midnight oil alerts** (if they're still checked in and haven't marked overtime)
 - Employees without a phone number are silently skipped for these notifications
 
+### Notification Preferences (Profile → Edit → 🔔 Notification Preferences card)
+
+- **⏰ Attendance Reminder** — opt in/out of "you haven't checked in" reminders
+- **👻 Checkout Reminder** — opt in/out of pre-evening checkout nudges
+- **🦉 Midnight Alert** — opt in/out of late-night "still checked in" alerts
+
+All toggles are enabled by default. Changes save instantly via `PATCH /auth/profile`.
+
+> Admin-sent reports (morning & evening) cannot be opted out of by employees.
+
+---
+
+## Delivery Status Webhooks
+
+Optional: Configure Meta to send delivery status updates to SmartAttend.
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/whatsapp/webhook` | `GET` | Meta verification (challenge-response) |
+| `/whatsapp/webhook` | `POST` | Delivery status logging (sent/delivered/read/failed) |
+
+### Setup
+
+1. Set `WHATSAPP_WEBHOOK_VERIFY_TOKEN` in your `.env`
+2. In Meta Business Manager → WhatsApp → Configuration:
+   - Callback URL: `https://your-domain.com/whatsapp/webhook`
+   - Verify Token: same value as env var
+   - Subscribe to: `messages`
+
 ---
 
 ## Database Schema
@@ -425,7 +458,15 @@ CREATE TABLE whatsapp_schedule_config (
     morning_report_time     VARCHAR(5) NOT NULL DEFAULT '11:00',
     evening_reminder_time   VARCHAR(5) NOT NULL DEFAULT '18:30',
     evening_report_time     VARCHAR(5) NOT NULL DEFAULT '19:00',
-    midnight_alert_time     VARCHAR(5) NOT NULL DEFAULT '23:00'
+    midnight_alert_time     VARCHAR(5) NOT NULL DEFAULT '23:00',
+    -- Notification toggles (all default ON)
+    reminder_enabled        BOOLEAN NOT NULL DEFAULT 1,
+    morning_report_enabled  BOOLEAN NOT NULL DEFAULT 1,
+    evening_reminder_enabled BOOLEAN NOT NULL DEFAULT 1,
+    evening_report_enabled  BOOLEAN NOT NULL DEFAULT 1,
+    midnight_alert_enabled  BOOLEAN NOT NULL DEFAULT 1,
+    checkin_alert_enabled   BOOLEAN NOT NULL DEFAULT 1,
+    checkout_alert_enabled  BOOLEAN NOT NULL DEFAULT 1
 );
 ```
 
@@ -433,13 +474,15 @@ CREATE TABLE whatsapp_schedule_config (
 
 | File | Purpose |
 |------|---------|
-| `backend/app/whatsapp.py` | Meta API integration, send helpers |
+| `backend/app/whatsapp.py` | Meta API integration, send helpers, retry logic, truncation |
 | `backend/app/app.py` | Scheduler dispatcher |
 | `backend/app/routes/attendance.py` | Check-in/out/overtime endpoints |
 | `backend/app/routes/admin.py` | WhatsApp number & schedule management |
+| `backend/app/routes/auth.py` | Profile endpoints (incl. notification prefs) |
+| `backend/app/routes/webhook.py` | WhatsApp delivery status webhooks |
 | `backend/app/models/whatsapp_config.py` | Admin phone numbers model |
-| `backend/app/models/whatsapp_schedule.py` | Schedule config model |
-| `backend/app/models/user.py` | User model (phone_number) |
+| `backend/app/models/whatsapp_schedule.py` | Schedule config model (with toggles) |
+| `backend/app/models/user.py` | User model (phone_number, notification prefs) |
 | `backend/app/models/attendance.py` | Attendance model (is_overtime) |
 | `backend/app/daily_report.py` | Email daily report (no auto-checkout) |
 
@@ -457,7 +500,10 @@ python scripts/migrate_whatsapp_overtime.py
 This will:
 1. Add `phone_number` column to `users` table
 2. Add `is_overtime` column to `attendance` table
-3. Create `whatsapp_config` and `whatsapp_schedule_config` tables if they don't exist
+3. Add `evening_reminder_time` to `whatsapp_schedule_config` table
+4. Add 7 notification toggle columns to `whatsapp_schedule_config` table
+5. Add 3 notification preference columns (`notify_reminder`, `notify_checkout`, `notify_midnight`) to `users` table
+6. Create `whatsapp_config` and `whatsapp_schedule_config` tables if they don't exist
 
 For **new databases**, `python scripts/setup_db.py` handles everything via `db.create_all()`.
 
@@ -467,5 +513,10 @@ For **new databases**, `python scripts/setup_db.py` handles everything via `db.c
 
 - **No auto-checkout**: The system no longer auto-fills checkout times. Employees who don't check out will show "Still Checked In" in the daily email report.
 - **Async sends**: All instant notifications (check-in/out) use background threads to avoid blocking the API.
-- **Timezone handling**: All times are stored in UTC in the database. Display/input uses the office timezone configured in `office_config.py`.
+- **Timezone handling**: All times are stored in UTC in the database. Display/input uses the office timezone configured in `office_config.py`. The admin config modal shows `(IST)` next to time pickers.
 - **Idempotent scheduler**: The `_fired` set prevents duplicate notifications even if the dispatcher runs multiple times within the same minute.
+- **Retry logic**: Failed sends are retried up to 3 times with exponential backoff (2s, 4s). 4xx client errors are not retried.
+- **Truncation**: Name lists in reports are capped at ~900 chars with "… and X more" to stay within WhatsApp's 1024-char parameter limit.
+- **Personalized greetings**: Admin-targeted templates use each admin's label (from WhatsApp config) as the `{{1}}` greeting, not a generic "Team".
+- **Employee opt-out**: Employees can disable specific notification types (reminder, checkout, midnight) from their profile page.
+- **Delivery status**: Optional webhook endpoint logs Meta delivery statuses (sent, delivered, read, failed).

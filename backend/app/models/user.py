@@ -12,5 +12,10 @@ class User(db.Model):
     role = db.Column(db.String(20), default='employee')  # employee or admin
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Notification preferences (employees can opt out of specific alerts)
+    notify_reminder = db.Column(db.Boolean, nullable=False, default=True)     # Attendance reminder
+    notify_checkout = db.Column(db.Boolean, nullable=False, default=True)     # Evening checkout reminder
+    notify_midnight = db.Column(db.Boolean, nullable=False, default=True)     # Midnight oil alert
+
     def __repr__(self):
         return f"<User {self.email}>"

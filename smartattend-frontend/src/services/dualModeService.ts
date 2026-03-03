@@ -79,7 +79,7 @@ export class DualModeService {
     }
   }
 
-  static async updateProfile(profileData: { name: string; email: string; phone_number?: string }) {
+  static async updateProfile(profileData: { name: string; email: string; phone_number?: string; notify_reminder?: boolean; notify_checkout?: boolean; notify_midnight?: boolean }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
 

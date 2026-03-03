@@ -62,7 +62,7 @@ def login():
 @auth_bp.route('/profile', methods=['PATCH'])
 @token_required
 def update_profile(user):
-    """Update profile fields that don't need OTP (currently just name).
+    """Update profile fields that don't need OTP.
     Email changes go through the /request-email-otp → /verify-otp-change-email flow.
     """
     data = request.get_json()
@@ -74,12 +74,21 @@ def update_profile(user):
     if phone_number is not None:  # allow setting to empty string to clear
         user.phone_number = phone_number.strip() if phone_number else None
 
+    # Notification preferences (employee opt-out)
+    for pref in ('notify_reminder', 'notify_checkout', 'notify_midnight'):
+        val = data.get(pref)
+        if val is not None:
+            setattr(user, pref, bool(val))
+
     db.session.commit()
     return jsonify({
         "message": "Profile updated",
         "name": user.name,
         "email": user.email,
         "phone_number": user.phone_number,
+        "notify_reminder": user.notify_reminder,
+        "notify_checkout": user.notify_checkout,
+        "notify_midnight": user.notify_midnight,
     }), 200
 
 
@@ -93,6 +102,9 @@ def get_profile(user):
         "phone_number": user.phone_number,
         "role": user.role,
         "created_at": user.created_at.isoformat(),
+        "notify_reminder": user.notify_reminder,
+        "notify_checkout": user.notify_checkout,
+        "notify_midnight": user.notify_midnight,
     }), 200
 
 

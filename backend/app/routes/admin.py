@@ -82,6 +82,7 @@ def get_employees():
             "id": emp.id,
             "name": emp.name,
             "email": emp.email,
+            "phone_number": emp.phone_number,
             "created_at": emp.created_at.isoformat(),
             "today_status": today_status,
             "check_in_time": to_utc_iso(record.check_in_time) if record else None,
@@ -89,6 +90,23 @@ def get_employees():
         })
 
     return jsonify(result), 200
+
+
+@admin_bp.route("/admin/employees/<int:emp_id>/phone", methods=["PATCH"])
+@admin_required
+def update_employee_phone(emp_id):
+    """Admin can update any employee's WhatsApp phone number."""
+    emp = User.query.get_or_404(emp_id)
+    data = request.get_json()
+    phone = data.get('phone_number', '').strip()
+    emp.phone_number = phone if phone else None
+    db.session.commit()
+    return jsonify({
+        'message': 'Phone number updated',
+        'id': emp.id,
+        'name': emp.name,
+        'phone_number': emp.phone_number,
+    }), 200
 
 
 @admin_bp.route("/admin/leaves", methods=["GET"])
@@ -525,7 +543,7 @@ def admin_update_whatsapp_schedule():
     time_pattern = re.compile(r'^([01]\d|2[0-3]):([0-5]\d)$')
 
     # Time fields
-    for field in ('reminder_time', 'morning_report_time', 'evening_reminder_time', 'evening_report_time', 'midnight_alert_time'):
+    for field in ('reminder_time', 'morning_report_time', 'logoff_reminder_time', 'evening_report_time', 'midnight_alert_time'):
         value = data.get(field)
         if value is not None:
             if not time_pattern.match(value):
@@ -533,7 +551,7 @@ def admin_update_whatsapp_schedule():
             setattr(config, field, value)
 
     # Boolean toggle fields
-    for field in ('reminder_enabled', 'morning_report_enabled', 'evening_reminder_enabled',
+    for field in ('reminder_enabled', 'morning_report_enabled', 'logoff_reminder_enabled',
                   'evening_report_enabled', 'midnight_alert_enabled',
                   'checkin_alert_enabled', 'checkout_alert_enabled'):
         value = data.get(field)
