@@ -6,6 +6,7 @@ export interface Employee {
   id: number;
   name: string;
   email: string;
+  phone_number: string | null;
   created_at: string;
   today_status: 'checked_in' | 'checked_out' | 'absent';
   check_in_time: string | null;
@@ -256,6 +257,118 @@ class AdminService {
 
     return response.json();
   }
+  // ── WhatsApp Number Management ────────────────────────────────────────
+
+  async getWhatsAppNumbers(): Promise<WhatsAppNumber[]> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch WhatsApp numbers');
+    }
+
+    return response.json();
+  }
+
+  async addWhatsAppNumber(phoneNumber: string, label?: string): Promise<{ message: string; id: number }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp`, {
+      method: 'POST',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify({ phone_number: phoneNumber, label }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to add WhatsApp number');
+    }
+
+    return response.json();
+  }
+
+  async deleteWhatsAppNumber(entryId: number): Promise<{ message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/${entryId}`, {
+      method: 'DELETE',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete WhatsApp number');
+    }
+
+    return response.json();
+  }
+
+  // ── WhatsApp Schedule ──────────────────────────────────────────────
+
+  async getWhatsAppSchedule(): Promise<WhatsAppSchedule> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/schedule`, {
+      method: 'GET',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch WhatsApp schedule');
+    }
+
+    return response.json();
+  }
+
+  async updateWhatsAppSchedule(schedule: Partial<WhatsAppSchedule>): Promise<WhatsAppSchedule & { message: string }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/whatsapp/schedule`, {
+      method: 'PATCH',
+      headers: authService.getAuthHeaders(),
+      body: JSON.stringify(schedule),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to update WhatsApp schedule');
+    }
+
+    return response.json();
+  }
+
+  // ── Employee Phone Management ───────────────────────────────────────
+
+  async updateEmployeePhone(empId: number, phoneNumber: string): Promise<{ message: string; id: number; phone_number: string | null }> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees/${empId}/phone`, {
+      method: 'PATCH',
+      headers: { ...authService.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone_number: phoneNumber }),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to update employee phone');
+    }
+    return data;
+  }
+}
+
+export interface WhatsAppNumber {
+  id: number;
+  phone_number: string;
+  label: string | null;
+  created_at: string | null;
+}
+
+export interface WhatsAppSchedule {
+  reminder_time: string;
+  morning_report_time: string;
+  logoff_reminder_time: string;
+  evening_report_time: string;
+  midnight_alert_time: string;
+  reminder_enabled: boolean;
+  morning_report_enabled: boolean;
+  logoff_reminder_enabled: boolean;
+  evening_report_enabled: boolean;
+  midnight_alert_enabled: boolean;
+  checkin_alert_enabled: boolean;
+  checkout_alert_enabled: boolean;
 }
 
 export interface Holiday {

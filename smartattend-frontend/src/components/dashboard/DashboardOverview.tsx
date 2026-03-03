@@ -4,7 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ContributionCalendar } from '../../components/calendar/ContributionCalendar';
-import { Clock, Calendar, TreePalm, FileText, CheckCircle, Timer } from 'lucide-react';
+import { Clock, Calendar, TreePalm, FileText, CheckCircle, Timer, Moon, Pencil } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
 import { formatOfficeTime, OFFICE } from '@/config/api';
@@ -27,24 +28,25 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const [attendanceStatus, setAttendanceStatus] = useState<string>('not_checked_in');
   const [checkInTime, setCheckInTime] = useState<string | null>(null);
   const [checkOutTime, setCheckOutTime] = useState<string | null>(null);
+  const [isOvertime, setIsOvertime] = useState(false);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'checkin' | 'checkout' | null>(null);
-  const [currentTime, setCurrentTime] = useState<string>('');
+  const [editableTime, setEditableTime] = useState<string>('');  // HH:MM 24h format
 
   // Track the date the dashboard was last fetched for
   const lastFetchDate = useRef(officeToday());
 
-  // Get current time in office timezone
-  const getCurrentOfficeTime = () => {
+
+  // Get current time in 24h HH:MM format for the time input
+  const getCurrentOfficeTime24 = () => {
     const now = new Date();
-    return now.toLocaleTimeString('en-US', {
+    return now.toLocaleTimeString('en-GB', {
       timeZone: OFFICE.TIMEZONE,
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
-      hour12: true
+      hour12: false
     });
   };
 
@@ -82,16 +84,8 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
     };
   }, []);
 
-  // ── Update current time in dialog every second ──────────────────────
-  useEffect(() => {
-    if (confirmDialogOpen) {
-      setCurrentTime(getCurrentOfficeTime());
-      const interval = setInterval(() => {
-        setCurrentTime(getCurrentOfficeTime());
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [confirmDialogOpen]);
+
+
 
   const fetchAttendanceStatus = async () => {
     try {
@@ -99,6 +93,7 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
       setAttendanceStatus(status.status || 'not_checked_in');
       setCheckInTime(status.check_in_time || null);
       setCheckOutTime(status.check_out_time || null);
+      setIsOvertime(status.is_overtime || false);
     } catch (error) {
       console.error('Failed to fetch attendance status:', error);
     }
@@ -133,13 +128,13 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   };
 
   const handleQuickCheckIn = () => {
-    setCurrentTime(getCurrentOfficeTime());
+    setEditableTime(getCurrentOfficeTime24());
     setPendingAction('checkin');
     setConfirmDialogOpen(true);
   };
 
   const handleQuickCheckOut = () => {
-    setCurrentTime(getCurrentOfficeTime());
+    setEditableTime(getCurrentOfficeTime24());
     setPendingAction('checkout');
     setConfirmDialogOpen(true);
   };
@@ -147,13 +142,13 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
   const confirmAction = async () => {
     setConfirmDialogOpen(false);
     setLoading(true);
-    
+
     try {
       if (pendingAction === 'checkin') {
-        await DualModeService.checkIn();
+        await DualModeService.checkIn(editableTime || undefined);
         toast({ title: 'Check-in successful!', description: 'Have a great day!' });
       } else if (pendingAction === 'checkout') {
-        await DualModeService.checkOut();
+        await DualModeService.checkOut(editableTime || undefined);
         toast({ title: 'Check-out successful!', description: 'See you tomorrow!' });
       }
       await fetchAttendanceStatus();
@@ -166,6 +161,24 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
     } finally {
       setLoading(false);
       setPendingAction(null);
+    }
+  };
+
+  const handleToggleOvertime = async () => {
+    setLoading(true);
+    try {
+      const result = await DualModeService.toggleOvertime();
+      setIsOvertime(result.is_overtime);
+      toast({
+        title: result.is_overtime ? '🌙 Overtime Enabled' : 'Overtime Disabled',
+        description: result.is_overtime
+          ? 'You won\'t receive late-night checkout reminders'
+          : 'Late-night checkout reminders re-enabled',
+      });
+    } catch (error: any) {
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -230,14 +243,28 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
           )}
 
           {attendanceStatus === 'checked_in_only' && (
-            <Button
-              onClick={handleQuickCheckOut}
-              disabled={loading}
-              variant="outline"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              Quick Check-Out
-            </Button>
+            <>
+              <Button
+                onClick={handleQuickCheckOut}
+                disabled={loading}
+                variant="outline"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Quick Check-Out
+              </Button>
+              <Button
+                onClick={handleToggleOvertime}
+                disabled={loading}
+                variant={isOvertime ? 'default' : 'outline'}
+                className={isOvertime
+                  ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                  : 'border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-900/20'
+                }
+              >
+                <Moon className="w-4 h-4 mr-2" />
+                {isOvertime ? 'Cancel Overtime' : 'Overtime'}
+              </Button>
+            </>
           )}
 
           {attendanceStatus === 'checked_in_and_out' && (
@@ -267,29 +294,36 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
               )}
             </DialogTitle>
             <DialogDescription>
-              {pendingAction === 'checkin' 
+              {pendingAction === 'checkin'
                 ? 'Are you sure you want to check in?'
                 : 'Are you sure you want to check out?'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4">
             <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <div className="text-center space-y-3 w-full">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   {pendingAction === 'checkin' ? 'Checking in at:' : 'Checking out at:'}
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {currentTime}
-                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <Input
+                    type="time"
+                    value={editableTime}
+                    onChange={(e) => setEditableTime(e.target.value)}
+                    className="w-36 text-center text-lg font-bold"
+                  />
+                  <Pencil className="w-4 h-4 text-gray-400" />
+                </div>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                  {new Date().toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                  {new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                   })}
                 </p>
+                <p className="text-[11px] text-gray-400">You can edit the time above if needed</p>
               </div>
             </div>
           </div>
@@ -308,8 +342,8 @@ export const DashboardOverview = ({ user }: DashboardOverviewProps) => {
             <Button
               onClick={confirmAction}
               disabled={loading}
-              className={pendingAction === 'checkin' 
-                ? 'bg-green-600 hover:bg-green-700' 
+              className={pendingAction === 'checkin'
+                ? 'bg-green-600 hover:bg-green-700'
                 : 'bg-blue-600 hover:bg-blue-700'}
             >
               {loading ? (

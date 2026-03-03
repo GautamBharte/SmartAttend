@@ -1,6 +1,11 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()  # must run before class body reads os.getenv
 
 class Config:
+    SECRET_KEY = os.getenv('SECRET_KEY', 'change-me')
+
     # Use DATABASE_URL from environment if available (set by docker-compose)
     # Otherwise, construct from individual env vars or use defaults
     _database_url = os.getenv('DATABASE_URL')

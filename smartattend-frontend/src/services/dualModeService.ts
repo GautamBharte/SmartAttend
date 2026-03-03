@@ -12,46 +12,46 @@ export class DualModeService {
   static async login(credentials: { email: string; password: string }) {
     console.log('DualModeService.login called with:', credentials);
     console.log('USE_DUMMY_API:', USE_DUMMY_API);
-    
+
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       const user = mockUsers[credentials.email as keyof typeof mockUsers];
       console.log('Found user in mock data:', user);
-      
+
       if (!user || user.password !== credentials.password) {
         throw new Error('Invalid credentials');
       }
-      
+
       const { password, ...userWithoutPassword } = user;
       this.currentUser = userWithoutPassword;
       this.token = `dummy_token_${user.id}`;
-      
+
       const response = {
         user: userWithoutPassword,
         token: this.token
       };
-      
+
       console.log('Dummy mode login response:', response);
       return response;
     } else {
       // Real API call
       console.log('Making real API call to:', `${API_CONFIG.BASE_URL}/auth/login`);
-      
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
       });
-      
+
       console.log('Real API response status:', response.status);
-      
+
       if (!response.ok) {
         const error = await response.json();
         console.error('Real API login error:', error);
         throw new Error(error.message || 'Login failed');
       }
-      
+
       const result = await response.json();
       console.log('Real API login success:', result);
       return result;
@@ -61,28 +61,28 @@ export class DualModeService {
   static async getProfile() {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       // Get current user from localStorage if available
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         return JSON.parse(storedUser);
       }
-      
+
       return this.currentUser;
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch profile');
       return response.json();
     }
   }
 
-  static async updateProfile(profileData: { name: string; email: string }) {
+  static async updateProfile(profileData: { name: string; email: string; phone_number?: string; notify_reminder?: boolean; notify_checkout?: boolean; notify_midnight?: boolean }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       // Update stored user data
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
@@ -91,7 +91,7 @@ export class DualModeService {
         localStorage.setItem('user', JSON.stringify(updatedUser));
         return { message: 'Profile updated successfully' };
       }
-      
+
       return { message: 'Profile updated successfully' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/profile`, {
@@ -99,7 +99,7 @@ export class DualModeService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(profileData),
       });
-      
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.error || 'Failed to update profile');
@@ -158,11 +158,11 @@ export class DualModeService {
   static async register(userData: { name: string; email: string; password: string; role?: string }) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       if (mockUsers[userData.email as keyof typeof mockUsers]) {
         throw new Error('User already exists');
       }
-      
+
       // In real app, this would persist to storage
       return { message: 'User registered successfully' };
     } else {
@@ -171,12 +171,12 @@ export class DualModeService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Registration failed');
       }
-      
+
       return response.json();
     }
   }
@@ -185,13 +185,13 @@ export class DualModeService {
   static async forgotPassword(email: string): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       const user = Object.values(mockUsers).find(u => u.email === email);
       if (!user) {
         // Mimic backend: don't reveal whether the email exists
         return { message: 'If an account with that email exists, an OTP has been sent.' };
       }
-      
+
       return { message: 'If an account with that email exists, an OTP has been sent.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/forgot-password`, {
@@ -199,7 +199,7 @@ export class DualModeService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      
+
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to send reset OTP');
@@ -212,12 +212,12 @@ export class DualModeService {
   static async resetPassword(data: { email: string; otp: string; new_password: string }): Promise<{ message: string }> {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       const user = Object.values(mockUsers).find(u => u.email === data.email);
       if (!user) {
         throw new Error('Invalid email or OTP');
       }
-      
+
       return { message: 'Password reset successfully. You can now log in with your new password.' };
     } else {
       const response = await fetch(`${API_CONFIG.BASE_URL}/auth/reset-password`, {
@@ -225,7 +225,7 @@ export class DualModeService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      
+
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'Failed to reset password');
@@ -237,16 +237,16 @@ export class DualModeService {
   static async getAttendanceStatus() {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
-      
+
       // Mock attendance status based on time of day for more realistic behavior
       const hour = new Date().getHours();
       const hasCheckedIn = hour >= 9; // Assume work starts at 9 AM
       const hasCheckedOut = hour >= 17 && hasCheckedIn; // Work ends at 5 PM
-      
+
       if (!hasCheckedIn) {
         return { status: 'not_checked_in' };
       } else if (hasCheckedIn && !hasCheckedOut) {
-        return { 
+        return {
           status: 'checked_in_only',
           check_in_time: new Date(Date.now() - (hour - 9) * 60 * 60 * 1000).toISOString()
         };
@@ -261,7 +261,7 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/status`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch attendance status');
       return response.json();
     }
@@ -275,13 +275,13 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch employees');
       return response.json();
     }
   }
 
-  static async checkIn() {
+  static async checkIn(time?: string) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
       return { message: 'Check-in successful', time: new Date().toISOString() };
@@ -289,14 +289,15 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/check-in`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
+        body: JSON.stringify(time ? { time } : {}),
       });
-      
+
       if (!response.ok) throw new Error('Check-in failed');
       return response.json();
     }
   }
 
-  static async checkOut() {
+  static async checkOut(time?: string) {
     if (USE_DUMMY_API) {
       await delay(API_CONFIG.DUMMY_DELAY);
       return { message: 'Check-out successful', time: new Date().toISOString() };
@@ -304,9 +305,28 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/check-out`, {
         method: 'POST',
         headers: this.getAuthHeaders(),
+        body: JSON.stringify(time ? { time } : {}),
       });
-      
+
       if (!response.ok) throw new Error('Check-out failed');
+      return response.json();
+    }
+  }
+
+  static async toggleOvertime(): Promise<{ message: string; is_overtime: boolean }> {
+    if (USE_DUMMY_API) {
+      await delay(API_CONFIG.DUMMY_DELAY);
+      return { message: 'Overtime toggled', is_overtime: true };
+    } else {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/overtime`, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to toggle overtime');
+      }
       return response.json();
     }
   }
@@ -319,7 +339,7 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/attendance/history`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch attendance history');
       const data = await response.json();
       // Backend returns {history: [...]}, extract the history array
@@ -351,7 +371,7 @@ export class DualModeService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(leaveData),
       });
-      
+
       if (!response.ok) throw new Error('Failed to apply for leave');
       return response.json();
     }
@@ -367,7 +387,7 @@ export class DualModeService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify(tourData),
       });
-      
+
       if (!response.ok) throw new Error('Failed to apply for tour');
       return response.json();
     }
@@ -381,7 +401,7 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/request/leave`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch leave history');
       return response.json();
     }
@@ -395,7 +415,7 @@ export class DualModeService {
       const response = await fetch(`${API_CONFIG.BASE_URL}/request/tour`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch tour history');
       return response.json();
     }
@@ -411,7 +431,7 @@ export class DualModeService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ status }),
       });
-      
+
       if (!response.ok) throw new Error('Failed to update leave status');
       return response.json();
     }
@@ -427,7 +447,7 @@ export class DualModeService {
         headers: this.getAuthHeaders(),
         body: JSON.stringify({ status }),
       });
-      
+
       if (!response.ok) throw new Error('Failed to update tour status');
       return response.json();
     }

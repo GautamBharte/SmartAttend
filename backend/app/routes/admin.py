@@ -7,6 +7,8 @@ from app.models.attendance import Attendance
 from app.models.holiday import Holiday
 from app.models.leave_balance import LeaveBalance, ANNUAL_PAID_LEAVES
 from app.models.weekend_config import WeekendConfig
+from app.models.whatsapp_config import WhatsAppConfig
+from app.models.whatsapp_schedule import WhatsAppScheduleConfig
 from app.app import db
 from app.routes.auth import token_required
 from app.office_config import office_today, to_utc_iso
@@ -80,6 +82,7 @@ def get_employees():
             "id": emp.id,
             "name": emp.name,
             "email": emp.email,
+            "phone_number": emp.phone_number,
             "created_at": emp.created_at.isoformat(),
             "today_status": today_status,
             "check_in_time": to_utc_iso(record.check_in_time) if record else None,
@@ -87,6 +90,23 @@ def get_employees():
         })
 
     return jsonify(result), 200
+
+
+@admin_bp.route("/admin/employees/<int:emp_id>/phone", methods=["PATCH"])
+@admin_required
+def update_employee_phone(emp_id):
+    """Admin can update any employee's WhatsApp phone number."""
+    emp = User.query.get_or_404(emp_id)
+    data = request.get_json()
+    phone = data.get('phone_number', '').strip()
+    emp.phone_number = phone if phone else None
+    db.session.commit()
+    return jsonify({
+        'message': 'Phone number updated',
+        'id': emp.id,
+        'name': emp.name,
+        'phone_number': emp.phone_number,
+    }), 200
 
 
 @admin_bp.route("/admin/leaves", methods=["GET"])
@@ -455,3 +475,88 @@ def admin_update_weekend_config():
         'weekend_days': sorted(set(weekend_days_list)),
         'weekend_days_string': weekend_days_str,
     }), 200
+
+
+# ── WhatsApp number management (admin) ────────────────────────────────
+
+@admin_bp.route("/admin/whatsapp", methods=["GET"])
+@admin_required
+def admin_get_whatsapp_numbers():
+    """List all WhatsApp notification numbers."""
+    numbers = WhatsAppConfig.query.order_by(WhatsAppConfig.id).all()
+    return jsonify([{
+        'id': n.id,
+        'phone_number': n.phone_number,
+        'label': n.label,
+        'created_at': n.created_at.isoformat() if n.created_at else None,
+    } for n in numbers]), 200
+
+
+@admin_bp.route("/admin/whatsapp", methods=["POST"])
+@admin_required
+def admin_add_whatsapp_number():
+    """Add a new WhatsApp notification number."""
+    data = request.get_json()
+    phone = data.get('phone_number', '').strip()
+    label = data.get('label', '').strip() or None
+
+    if not phone:
+        return jsonify({'error': 'phone_number is required'}), 400
+
+    if WhatsAppConfig.query.filter_by(phone_number=phone).first():
+        return jsonify({'error': 'This number already exists'}), 409
+
+    entry = WhatsAppConfig(phone_number=phone, label=label)
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({'message': 'Number added', 'id': entry.id}), 201
+
+
+@admin_bp.route("/admin/whatsapp/<int:entry_id>", methods=["DELETE"])
+@admin_required
+def admin_delete_whatsapp_number(entry_id):
+    """Remove a WhatsApp notification number."""
+    entry = WhatsAppConfig.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'message': 'Number removed'}), 200
+
+
+# ── WhatsApp schedule config (admin) ──────────────────────────────────
+
+@admin_bp.route("/admin/whatsapp/schedule", methods=["GET"])
+@admin_required
+def admin_get_whatsapp_schedule():
+    """Get the current WhatsApp notification schedule."""
+    config = WhatsAppScheduleConfig.get_current()
+    return jsonify(config.to_dict()), 200
+
+
+@admin_bp.route("/admin/whatsapp/schedule", methods=["PATCH"])
+@admin_required
+def admin_update_whatsapp_schedule():
+    """Update WhatsApp notification schedule times and toggles."""
+    import re
+    data = request.get_json()
+    config = WhatsAppScheduleConfig.get_current()
+
+    time_pattern = re.compile(r'^([01]\d|2[0-3]):([0-5]\d)$')
+
+    # Time fields
+    for field in ('reminder_time', 'morning_report_time', 'logoff_reminder_time', 'evening_report_time', 'midnight_alert_time'):
+        value = data.get(field)
+        if value is not None:
+            if not time_pattern.match(value):
+                return jsonify({'error': f'Invalid time format for {field}: must be HH:MM (24h)'}), 400
+            setattr(config, field, value)
+
+    # Boolean toggle fields
+    for field in ('reminder_enabled', 'morning_report_enabled', 'logoff_reminder_enabled',
+                  'evening_report_enabled', 'midnight_alert_enabled',
+                  'checkin_alert_enabled', 'checkout_alert_enabled'):
+        value = data.get(field)
+        if value is not None:
+            setattr(config, field, bool(value))
+
+    db.session.commit()
+    return jsonify({'message': 'Schedule updated', **config.to_dict()}), 200

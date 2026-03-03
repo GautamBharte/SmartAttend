@@ -47,16 +47,6 @@ def generate_report_html() -> tuple[str, str]:
     present_count = 0
     absent_count = 0
 
-    # Auto-checkout time: 1 hour before office end, in UTC (for DB storage)
-    auto_checkout_local = datetime(
-        today.year, today.month, today.day,
-        OFFICE_END_HOUR, OFFICE_END_MINUTE,
-        tzinfo=OFFICE_TZ,
-    ).replace(hour=OFFICE_END_HOUR - 1)
-    auto_checkout_utc = auto_checkout_local.astimezone(tz.utc).replace(tzinfo=None)
-
-    auto_checked_out = False
-
     for emp in employees:
         record = Attendance.query.filter_by(user_id=emp.id, date=today).first()
 
@@ -69,11 +59,7 @@ def generate_report_html() -> tuple[str, str]:
             if record.check_out_time:
                 exit_time = _format_local(record.check_out_time)
             else:
-                # Auto-fill checkout to 1 h before office end
-                record.check_out_time = auto_checkout_utc
-                auto_checked_out = True
-                exit_time = _format_local(auto_checkout_utc) + " (auto)"
-                logger.info("Auto-checkout for %s at %s", emp.name, exit_time)
+                exit_time = "Still Checked In"
         else:
             absent_count += 1
             status = "Absent"
@@ -89,9 +75,6 @@ def generate_report_html() -> tuple[str, str]:
             "entry": entry,
             "exit": exit_time,
         })
-
-    if auto_checked_out:
-        db.session.commit()
 
     total = len(employees)
     subject = f"📋 Daily Attendance Report — {today_str}"

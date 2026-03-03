@@ -4,9 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { DualModeService } from '@/services/dualModeService';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, User, Lock, Mail, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { Loader2, User, Lock, Mail, KeyRound, ShieldCheck, Eye, EyeOff, CheckCircle2, Phone } from 'lucide-react';
 
 interface EditProfileFormProps {
   user: any;
@@ -72,6 +73,16 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
   const [name, setName] = useState(user?.name || '');
   const [savingName, setSavingName] = useState(false);
 
+  // ── Phone number update ────────────────────────────────────────────
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
+  const [savingPhone, setSavingPhone] = useState(false);
+
+  // ── Notification preferences ───────────────────────────────────────
+  const [notifyReminder, setNotifyReminder] = useState(user?.notify_reminder ?? true);
+  const [notifyCheckout, setNotifyCheckout] = useState(user?.notify_checkout ?? true);
+  const [notifyMidnight, setNotifyMidnight] = useState(user?.notify_midnight ?? true);
+  const [savingPrefs, setSavingPrefs] = useState(false);
+
   const handleSaveName = async (e: React.FormEvent) => {
     e.preventDefault();
     if (name.trim() === user?.name) return;
@@ -84,6 +95,21 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
       toast({ title: 'Failed', description: err.message, variant: 'destructive' });
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleSavePhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (phoneNumber.trim() === (user?.phone_number || '')) return;
+    setSavingPhone(true);
+    try {
+      await DualModeService.updateProfile({ name: user.name, email: user.email, phone_number: phoneNumber.trim() });
+      onProfileUpdate({ ...user, phone_number: phoneNumber.trim() });
+      toast({ title: 'Phone number updated!' });
+    } catch (err: any) {
+      toast({ title: 'Failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSavingPhone(false);
     }
   };
 
@@ -214,19 +240,19 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-lg">
             <User className="w-5 h-5" /> Profile Name
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSaveName} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
+                required
+              />
+            </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={savingName || name.trim() === user?.name} className="flex-1">
                 {savingName && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -237,6 +263,94 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
               </Button>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      {/* ── Phone Number (WhatsApp) ─────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Phone className="w-5 h-5" /> WhatsApp Number
+          </CardTitle>
+          <CardDescription>
+            Used for attendance reminders and late-night alerts
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSavePhone} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number (with country code)</Label>
+              <Input
+                id="phone"
+                placeholder="e.g. 919876543210"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-4 py-3">
+              <Phone className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-xs text-green-700 dark:text-green-300">
+                This number will receive WhatsApp reminders if you haven't checked in, and late-night check-out alerts.
+              </p>
+            </div>
+            <Button type="submit" disabled={savingPhone || phoneNumber.trim() === (user?.phone_number || '')} className="w-full">
+              {savingPhone && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Phone Number
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* ── Notification Preferences ──────────────────────────────── */}
+      <Card>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            🔔 Notification Preferences
+          </CardTitle>
+          <CardDescription>
+            Choose which WhatsApp notifications you want to receive
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {[
+            { id: 'notify_reminder', label: '⏰ Attendance Reminder', desc: 'Reminder if you haven\'t checked in', value: notifyReminder, setter: setNotifyReminder },
+            { id: 'notify_checkout', label: '👻 Checkout Reminder', desc: 'Pre-evening reminder to check out', value: notifyCheckout, setter: setNotifyCheckout },
+            { id: 'notify_midnight', label: '🦉 Midnight Alert', desc: 'Late-night alert if still checked in', value: notifyMidnight, setter: setNotifyMidnight },
+          ].map(({ id, label, desc, value, setter }) => (
+            <div key={id} className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{label}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{desc}</p>
+              </div>
+              <Switch
+                checked={value}
+                disabled={savingPrefs}
+                onCheckedChange={async (checked: boolean) => {
+                  setter(checked);
+                  setSavingPrefs(true);
+                  try {
+                    const result = await DualModeService.updateProfile({
+                      name: user.name,
+                      email: user.email,
+                      [id]: checked,
+                    });
+                    onProfileUpdate({ ...user, [id]: checked });
+                    toast({ title: checked ? 'Notifications enabled' : 'Notifications disabled' });
+                  } catch (err: any) {
+                    setter(!checked); // revert on failure
+                    toast({ title: 'Failed', description: err.message, variant: 'destructive' });
+                  } finally {
+                    setSavingPrefs(false);
+                  }
+                }}
+              />
+            </div>
+          ))}
+          <div className="flex items-center gap-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              💡 Admin-sent reports (morning & evening) cannot be opted out of here. Contact your admin to disable those.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -265,17 +379,17 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
             </div>
           ) : emailStep === 'edit' || emailStep === 'sending' ? (
             <div className="space-y-4">
-          <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="new-email">New Email Address</Label>
-            <Input
+                <Input
                   id="new-email"
-              type="email"
+                  type="email"
                   placeholder="you@example.com"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-              required
-            />
-          </div>
+                  required
+                />
+              </div>
               <div className="flex items-center gap-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3">
                 <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                 <p className="text-xs text-blue-700 dark:text-blue-300">
@@ -442,15 +556,15 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
                     <ShieldCheck className="mr-2 h-4 w-4" />
                   )}
                   Change Password
-            </Button>
+                </Button>
                 <Button type="button" variant="outline" onClick={resetPwFlow} className="flex-1">
-              Cancel
-            </Button>
-          </div>
-        </form>
+                  Cancel
+                </Button>
+              </div>
+            </form>
           )}
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
     </div>
   );
 };
