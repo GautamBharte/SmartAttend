@@ -329,7 +329,7 @@ export const EditProfileForm = ({ user, onProfileUpdate, onClose }: EditProfileF
                   setter(checked);
                   setSavingPrefs(true);
                   try {
-                    const result = await DualModeService.updateProfile({
+                    await DualModeService.updateProfile({
                       name: user.name,
                       email: user.email,
                       [id]: checked,
