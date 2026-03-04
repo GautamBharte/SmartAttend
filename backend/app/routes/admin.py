@@ -109,6 +109,34 @@ def update_employee_phone(emp_id):
     }), 200
 
 
+@admin_bp.route("/admin/employees/<int:emp_id>", methods=["DELETE"])
+@admin_required
+def delete_employee(emp_id):
+    """Admin can delete an employee and all their associated records."""
+    emp = User.query.get(emp_id)
+    if not emp:
+        return jsonify({"error": "Employee not found"}), 404
+        
+    if emp.role == 'admin':
+        return jsonify({"error": "Cannot delete admin users"}), 403
+
+    try:
+        # Delete related records first to avoid foreign key constraints
+        Attendance.query.filter_by(user_id=emp_id).delete()
+        Leave.query.filter_by(user_id=emp_id).delete()
+        Tour.query.filter_by(user_id=emp_id).delete()
+        LeaveBalance.query.filter_by(user_id=emp_id).delete()
+        
+        # Finally delete the user
+        db.session.delete(emp)
+        db.session.commit()
+        
+        return jsonify({"message": f"Employee {emp.name} deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to delete employee: {str(e)}"}), 500
+
+
 @admin_bp.route("/admin/leaves", methods=["GET"])
 @admin_required
 def get_leaves():

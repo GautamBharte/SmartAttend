@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Calendar, FileText, CheckCircle, XCircle, Mail, Eye, Send, Loader2, ExternalLink, AlertCircle, Clock, CalendarDays } from 'lucide-react';
+import { Users, Calendar, FileText, CheckCircle, XCircle, Mail, Eye, Send, Loader2, ExternalLink, AlertCircle, Clock, CalendarDays, Trash2 } from 'lucide-react';
 import { adminService, type SearchFilters, type AdminLeave, type AdminTour, type Employee } from '../..//services/adminService';
 import { AdminSearchFilters } from './AdminSearchFilters';
 import { DetailModal } from './DetailModal';
@@ -479,14 +479,39 @@ export const AdminPanel = () => {
                                 : '—'}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openDetailModal(employee, 'employee')}
-                              className="text-xs sm:text-sm"
-                            >
-                              View
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openDetailModal(employee, 'employee')}
+                                className="text-xs sm:text-sm"
+                              >
+                                View
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  if (window.confirm(`Are you sure you want to delete ${employee.name}? This will also delete all their attendance records, leave requests, and tour requests. This action cannot be undone.`)) {
+                                    try {
+                                      setLoading(true);
+                                      await adminService.deleteEmployee(employee.id);
+                                      toast({ title: 'Employee deleted successfully' });
+                                      fetchEmployees();
+                                    } catch (error: any) {
+                                      toast({ title: 'Failed to delete employee', description: error.message, variant: 'destructive' });
+                                    } finally {
+                                      setLoading(false);
+                                    }
+                                  }
+                                }}
+                                disabled={loading}
+                                className="text-xs sm:text-sm px-2"
+                                title="Delete Employee"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

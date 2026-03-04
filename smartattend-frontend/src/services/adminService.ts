@@ -70,6 +70,18 @@ class AdminService {
     return response.json();
   }
 
+  async deleteEmployee(employeeId: number): Promise<void> {
+    const response = await fetch(`${API_CONFIG.BASE_URL}/admin/employees/${employeeId}`, {
+      method: 'DELETE',
+      headers: authService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to delete employee');
+    }
+  }
+
   async getLeaves(filters: SearchFilters = {}): Promise<AdminLeave[]> {
     const queryParams = this.buildQueryParams(filters);
     const response = await fetch(`${API_CONFIG.BASE_URL}/admin/leaves?${queryParams}`, {

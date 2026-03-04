@@ -2,7 +2,9 @@
 export const USE_DUMMY_API = false;
 
 export const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000',
+  // Use empty string in production so requests go to the same origin (Nginx will proxy to backend)
+  // Use localhost in dev environment
+  BASE_URL: import.meta.env.PROD ? '' : 'http://localhost:8000',
   DUMMY_DELAY: 500, // Simulate network delay for dummy responses
 };
 
